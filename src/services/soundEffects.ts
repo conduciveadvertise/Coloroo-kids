@@ -287,18 +287,25 @@ class SoundEngine {
 
   public speak(text: string): void {
     if (!this.voiceEnabled) return;
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.25;
+      utterance.volume = this.volume;
+      
+      // Select an English voice if available
+      const voices = window.speechSynthesis.getVoices();
+      if (voices && voices.length > 0) {
+        const enVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('Natural')));
+        if (enVoice) utterance.voice = enVoice;
+      }
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.35;
-        utterance.volume = this.volume;
-
-        window.speechSynthesis.speak(utterance);
-      } catch {}
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // Audio speech fallback silent
     }
   }
 }

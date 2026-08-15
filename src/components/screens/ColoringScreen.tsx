@@ -11,7 +11,6 @@ import {
   Trash2, 
   Wand2, 
   Check, 
-  Download, 
   ChevronLeft, 
   Layers
 } from 'lucide-react';
@@ -25,7 +24,6 @@ import {
 } from '../../types';
 import { COLORING_PAGES, PALETTE_COLORS, UNLOCKABLE_STICKERS } from '../../data/coloringPages';
 import { sound } from '../../services/soundEffects';
-import { MascotRoo } from '../MascotRoo';
 
 interface ColoringScreenProps {
   initialPageId?: string;
@@ -42,14 +40,12 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
 }) => {
   // Active Page Selection
   const [currentPageId, setCurrentPageId] = useState<string>(initialPageId);
-  const [selectedCategory, setSelectedCategory] = useState<ColoringCategory>('animals');
-  
   const currentPage = COLORING_PAGES.find(p => p.id === currentPageId) || COLORING_PAGES[0];
 
   // Tool & Color State
   const [activeTool, setActiveTool] = useState<ToolType>('bucket');
   const [selectedColor, setSelectedColor] = useState<string>(PALETTE_COLORS[10].hex); // Coloroo purple default
-  const [brushSize, setBrushSize] = useState<number>(14);
+  const [brushSize, setBrushSize] = useState<number>(16);
   const [activeSticker, setActiveSticker] = useState<string>(UNLOCKABLE_STICKERS[0].emojiOrSvg);
 
   // Canvas / SVG Fill State
@@ -180,7 +176,6 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
     const y = ((clientY - rect.top) / rect.height) * canvas.height;
 
     currentPath.current = [{ x, y }];
-
     sound.playSwoosh();
   };
 
@@ -249,54 +244,62 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
     }
   };
 
-  // Undo / Redo
+  // Undo Action
   const handleUndo = () => {
     if (drawingHistory.length === 0) return;
     sound.playPop();
     const last = drawingHistory[drawingHistory.length - 1];
-    const nextHistory = drawingHistory.slice(0, -1);
-    setDrawingHistory(nextHistory);
-    setRedoHistory(prev => [...prev, last]);
-    redrawCanvas(nextHistory);
+    const updated = drawingHistory.slice(0, -1);
+    setDrawingHistory(updated);
+    setRedoHistory(prev => [last, ...prev]);
+    redrawCanvas(updated);
   };
 
+  // Redo Action
   const handleRedo = () => {
     if (redoHistory.length === 0) return;
     sound.playPop();
-    const next = redoHistory[redoHistory.length - 1];
-    const nextRedo = redoHistory.slice(0, -1);
+    const next = redoHistory[0];
+    const updatedRedo = redoHistory.slice(1);
     const updatedHistory = [...drawingHistory, next];
+    setRedoHistory(updatedRedo);
     setDrawingHistory(updatedHistory);
-    setRedoHistory(nextRedo);
     redrawCanvas(updatedHistory);
   };
 
   // Clear Canvas
   const handleClear = () => {
     sound.playPop();
-    const resetFills: Record<string, string> = {};
+    const initialFills: Record<string, string> = {};
     currentPage.svgPaths.forEach(path => {
-      resetFills[path.id] = '#FFFFFF';
+      initialFills[path.id] = path.defaultFill || '#FFFFFF';
     });
-    setPathFills(resetFills);
+    setPathFills(initialFills);
     setPlacedStickers([]);
     setDrawingHistory([]);
     setRedoHistory([]);
     clearCanvas();
   };
 
-  // Magic Rainbow Auto-fill
+  // Auto-Fill Magic Rainbow Colors
   const handleMagicFill = () => {
-    sound.playSparkle();
+    sound.playFanfare();
     sound.speak("Abracadabra! Magic Rainbow Splash!");
-    const magicFills: Record<string, string> = {};
+    
+    const randomColors = [
+      '#FF7675', '#74B9FF', '#FDCB6E', '#55EFC4', '#A29BFE',
+      '#FD79A8', '#FFA502', '#00CEC9', '#2ED573', '#FF4757'
+    ];
+
+    const rainbowFills: Record<string, string> = {};
     currentPage.svgPaths.forEach((path, idx) => {
-      magicFills[path.id] = PALETTE_COLORS[idx % PALETTE_COLORS.length].hex;
+      rainbowFills[path.id] = randomColors[idx % randomColors.length];
     });
-    setPathFills(magicFills);
+
+    setPathFills(rainbowFills);
   };
 
-  // Complete Artwork
+  // Finish and Save
   const handleFinish = () => {
     const artwork: SavedArtwork = {
       id: `art-${Date.now()}`,
@@ -319,64 +322,67 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
   ];
 
   return (
-    <div className="flex-1 h-full flex flex-col justify-between p-2 sm:p-4 select-none overflow-hidden">
-      {/* Top Bar: Back, Page Selector, Action Buttons */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        {/* Left Back & Title */}
-        <div className="flex items-center gap-2">
+    <div className="flex-1 w-full h-full flex flex-col justify-between p-1.5 sm:p-2.5 md:p-3 select-none overflow-hidden bg-[#F3E8FF]">
+      {/* Top Compact Bar: Back, Page Selector, Action Buttons */}
+      <div className="flex items-center justify-between gap-2 mb-1.5 shrink-0 z-30">
+        {/* Left Back & Artwork Selection Pills */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
           <button
             id="coloring-back-btn"
             onClick={() => {
               sound.playPop();
               onBack();
             }}
-            className="p-2 rounded-2xl bg-white hover:bg-purple-50 active:scale-95 text-slate-700 cursor-pointer flex items-center gap-1 border-2 border-purple-100 shadow-sm"
+            className="p-1.5 sm:p-2 rounded-xl sm:rounded-2xl bg-white hover:bg-purple-50 active:scale-95 text-slate-700 cursor-pointer flex items-center gap-1 border-2 border-purple-100 shadow-sm shrink-0"
           >
             <ChevronLeft className="w-5 h-5 text-purple-700" />
-            <span className="text-xs font-bold hidden sm:inline text-purple-900">Back</span>
+            <span className="text-xs font-bold hidden sm:inline text-purple-900">Home</span>
           </button>
 
-          {/* Page Picker Dropdown / Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-[200px] sm:max-w-md">
-            {COLORING_PAGES.map(p => (
-              <button
-                key={p.id}
-                id={`select-page-${p.id}`}
-                onClick={() => {
-                  sound.playPop();
-                  setCurrentPageId(p.id);
-                }}
-                className={`px-3 py-1 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
-                  p.id === currentPageId
-                    ? 'bg-purple-600 text-white shadow-md border-2 border-white scale-105'
-                    : 'bg-white text-slate-600 hover:bg-purple-50 border border-purple-100'
-                }`}
-              >
-                {p.title}
-              </button>
-            ))}
+          {/* Page Picker Pills (Scrollable & Clickable) */}
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {COLORING_PAGES.map(p => {
+              const isSelected = p.id === currentPageId;
+              return (
+                <button
+                  key={p.id}
+                  id={`select-page-${p.id}`}
+                  onClick={() => {
+                    sound.playPop();
+                    setCurrentPageId(p.id);
+                  }}
+                  className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-purple-600 text-white shadow-md border-2 border-white scale-105'
+                      : 'bg-white text-slate-600 hover:bg-purple-50 border border-purple-100'
+                  }`}
+                >
+                  {p.title}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Right Action Tools: Magic Fill, Undo, Redo, Clear, Done */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <motion.button
             id="magic-rainbow-btn"
             onClick={handleMagicFill}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="p-2 rounded-xl bg-gradient-to-r from-pink-400 to-amber-300 text-slate-900 font-black text-xs flex items-center gap-1 shadow-md border-2 border-white cursor-pointer active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-r from-pink-400 to-amber-300 text-slate-900 font-black text-xs flex items-center gap-1 shadow-md border-2 border-white cursor-pointer active:scale-95"
             title="Magic Auto Color"
           >
             <Wand2 className="w-4 h-4 text-purple-900" />
-            <span className="hidden md:inline text-purple-900">Magic Fill</span>
+            <span className="hidden md:inline text-purple-900 font-black text-[11px]">Magic Fill</span>
           </motion.button>
 
           <button
             id="undo-btn"
             onClick={handleUndo}
             disabled={drawingHistory.length === 0}
-            className="p-2 rounded-xl bg-white hover:bg-purple-50 disabled:opacity-30 text-purple-900 border-2 border-purple-100 shadow-sm cursor-pointer active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-purple-50 disabled:opacity-30 text-purple-900 border-2 border-purple-100 shadow-sm cursor-pointer active:scale-95"
             title="Undo"
           >
             <RotateCcw className="w-4 h-4" />
@@ -386,7 +392,7 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
             id="redo-btn"
             onClick={handleRedo}
             disabled={redoHistory.length === 0}
-            className="p-2 rounded-xl bg-white hover:bg-purple-50 disabled:opacity-30 text-purple-900 border-2 border-purple-100 shadow-sm cursor-pointer active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-purple-50 disabled:opacity-30 text-purple-900 border-2 border-purple-100 shadow-sm cursor-pointer active:scale-95"
             title="Redo"
           >
             <RotateCw className="w-4 h-4" />
@@ -395,7 +401,7 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
           <button
             id="clear-canvas-btn"
             onClick={handleClear}
-            className="p-2 rounded-xl bg-white hover:bg-rose-50 text-rose-500 border-2 border-purple-100 shadow-sm cursor-pointer active:scale-95"
+            className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-rose-50 text-rose-500 border-2 border-purple-100 shadow-sm cursor-pointer active:scale-95"
             title="Clear Canvas"
           >
             <Trash2 className="w-4 h-4" />
@@ -404,7 +410,7 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
           <button
             id="finish-coloring-btn"
             onClick={handleFinish}
-            className="px-4 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-500 active:scale-95 text-slate-900 font-black text-xs sm:text-sm shadow-md flex items-center gap-1.5 border-2 border-white cursor-pointer"
+            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-emerald-400 hover:bg-emerald-500 active:scale-95 text-slate-900 font-black text-xs sm:text-sm shadow-md flex items-center gap-1 border-2 border-white cursor-pointer"
           >
             <Check className="w-4 h-4 stroke-[3]" />
             <span>I'm Done! ⭐</span>
@@ -412,81 +418,161 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
         </div>
       </div>
 
-      {/* Main Studio Area: Left Tool Sidebar + Center Work Canvas + Right Mascot Tip */}
-      <div className="flex-1 flex gap-2 sm:gap-3 items-center justify-between min-h-0 relative py-0.5">
-        {/* Left Tools Column */}
-        <div className="w-14 sm:w-16 md:w-20 bg-white p-1 sm:p-1.5 md:p-2 rounded-2xl sm:rounded-3xl border-2 border-purple-100 flex flex-col gap-1 sm:gap-1.5 md:gap-2 shadow-xl shrink-0 z-20">
-          {tools.map(tool => {
-            const Icon = tool.icon;
-            const isSelected = activeTool === tool.id;
-            return (
-              <button
-                key={tool.id}
-                id={`tool-btn-${tool.id}`}
-                onClick={() => {
-                  sound.playPop();
-                  setActiveTool(tool.id);
-                }}
-                className={`py-1 sm:py-1.5 md:py-2 px-1 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer ${
-                  isSelected
-                    ? 'bg-purple-600 text-white shadow-lg scale-105 border-2 border-white'
-                    : 'bg-slate-50 hover:bg-purple-50 text-slate-500'
-                }`}
-              >
-                <Icon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
-                <span className="text-[7px] sm:text-[8px] md:text-[9px] font-bold mt-0.5 leading-none text-center">
-                  {tool.label}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* Brush Size Picker Pill if in Brush/Glow/Glitter/Eraser */}
-          {activeTool !== 'bucket' && activeTool !== 'sticker' && (
-            <div className="pt-1 border-t border-purple-100 flex flex-col items-center gap-0.5">
-              <span className="text-[7px] sm:text-[8px] font-black uppercase text-purple-700 leading-none">
-                Size
-              </span>
-              <div className="flex flex-col gap-1 items-center">
-                {[8, 16, 26].map(sz => (
+      {/* Main Studio Workspace: LEFT (Tools + 2-Row Color Palette) + CENTER (HUGE Canvas) */}
+      <div className="flex-1 flex gap-2 sm:gap-3 items-stretch justify-between min-h-0 relative">
+        
+        {/* LEFT COMBINED SIDEBAR: Tools Column + 2-Row Palette / Sticker Picker */}
+        <div className="shrink-0 flex gap-1.5 sm:gap-2 items-stretch z-20">
+          {/* Tool Column */}
+          <div className="w-13 sm:w-15 md:w-16 bg-white p-1 sm:p-1.5 rounded-2xl sm:rounded-3xl border-2 border-purple-100 flex flex-col justify-between shadow-lg">
+            <div className="flex flex-col gap-1">
+              {tools.map(tool => {
+                const Icon = tool.icon;
+                const isSelected = activeTool === tool.id;
+                return (
                   <button
-                    key={sz}
-                    id={`brush-size-${sz}`}
+                    key={tool.id}
+                    id={`tool-btn-${tool.id}`}
                     onClick={() => {
                       sound.playPop();
-                      setBrushSize(sz);
+                      setActiveTool(tool.id);
                     }}
-                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center cursor-pointer ${
-                      brushSize === sz
-                        ? 'border-purple-600 bg-purple-100'
-                        : 'border-slate-200 bg-slate-100'
+                    className={`py-1 sm:py-1.5 px-0.5 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-purple-600 text-white shadow-md scale-105 border-2 border-white'
+                        : 'bg-slate-50 hover:bg-purple-50 text-slate-500'
                     }`}
                   >
-                    <div
-                      className="rounded-full bg-purple-800"
-                      style={{ width: sz / 3, height: sz / 3 }}
-                    />
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="text-[7px] sm:text-[8px] font-bold mt-0.5 leading-none text-center truncate w-full">
+                      {tool.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Brush Size Picker Pill */}
+            {activeTool !== 'bucket' && activeTool !== 'sticker' && (
+              <div className="pt-1 border-t border-purple-100 flex flex-col items-center gap-0.5 shrink-0">
+                <span className="text-[7px] font-black uppercase text-purple-700 leading-none">
+                  Size
+                </span>
+                <div className="flex flex-col gap-1 items-center">
+                  {[8, 16, 24].map(sz => (
+                    <button
+                      key={sz}
+                      id={`brush-size-${sz}`}
+                      onClick={() => {
+                        sound.playPop();
+                        setBrushSize(sz);
+                      }}
+                      className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 flex items-center justify-center cursor-pointer ${
+                        brushSize === sz
+                          ? 'border-purple-600 bg-purple-100'
+                          : 'border-slate-200 bg-slate-100'
+                      }`}
+                    >
+                      <div
+                        className="rounded-full bg-purple-800"
+                        style={{ width: sz / 3.5, height: sz / 3.5 }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* TWO-ROW COMPACT COLOR PALETTE / STICKER TRAY (LEFT SIDE) */}
+          {activeTool === 'sticker' ? (
+            <div className="w-20 sm:w-24 bg-white p-1.5 rounded-2xl sm:rounded-3xl border-2 border-purple-100 shadow-lg flex flex-col gap-1 overflow-y-auto kids-scrollbar">
+              <span className="text-[8px] sm:text-[9px] font-black text-center text-purple-900 uppercase">
+                Stickers
+              </span>
+              <div className="grid grid-cols-2 gap-1">
+                {UNLOCKABLE_STICKERS.map(s => (
+                  <button
+                    key={s.id}
+                    id={`sticker-pick-${s.id}`}
+                    onClick={() => {
+                      sound.playPop();
+                      setActiveSticker(s.emojiOrSvg);
+                    }}
+                    className={`p-1 rounded-xl text-xl flex items-center justify-center transition-all cursor-pointer ${
+                      activeSticker === s.emojiOrSvg
+                        ? 'bg-amber-400 scale-105 shadow-md border-2 border-white'
+                        : 'bg-slate-50 hover:bg-purple-50'
+                    }`}
+                    title={s.name}
+                  >
+                    {s.emojiOrSvg}
                   </button>
                 ))}
+              </div>
+            </div>
+          ) : (
+            <div className="w-20 sm:w-24 md:w-28 bg-white p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border-2 border-purple-100 shadow-lg flex flex-col justify-between overflow-hidden">
+              <div className="flex items-center justify-between mb-1 px-0.5 shrink-0">
+                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-purple-900">
+                  Colors
+                </span>
+                <span className="text-[8px] text-purple-500 font-bold">
+                  {PALETTE_COLORS.length}
+                </span>
+              </div>
+              
+              {/* TWO ROWS OF COLOR SWATCHES (Scrollable vertical grid on the LEFT side) */}
+              <div className="flex-1 min-h-0 grid grid-cols-2 gap-1 sm:gap-1.5 overflow-y-auto kids-scrollbar pr-0.5 content-start">
+                {PALETTE_COLORS.map((c, idx) => {
+                  const isSelected = selectedColor === c.hex;
+                  return (
+                    <motion.button
+                      key={c.id}
+                      id={`color-swatch-${c.id}`}
+                      onClick={() => {
+                        sound.playColorChime(idx);
+                        setSelectedColor(c.hex);
+                      }}
+                      whileHover={{ scale: 1.15 }}
+                      whileTap={{ scale: 0.9 }}
+                      className={`w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-xl shrink-0 transition-transform cursor-pointer relative flex items-center justify-center shadow-xs mx-auto ${
+                        isSelected
+                          ? 'ring-2 sm:ring-3 ring-purple-600 ring-offset-1 ring-offset-white scale-110'
+                          : 'hover:opacity-90'
+                      }`}
+                      style={{
+                        backgroundColor: c.hex,
+                        borderColor: c.border,
+                        borderWidth: '2px'
+                      }}
+                      title={c.name}
+                    >
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white stroke-[3] drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]" />
+                      )}
+                    </motion.button>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
 
-        {/* Center Canvas Studio Stage */}
-        <div className="flex-1 h-full flex items-center justify-center relative min-h-0 px-1">
+        {/* CENTER / MAIN WORKSPACE: MUCH LARGER CANVAS Centered in available middle area */}
+        <div className="flex-1 h-full flex items-center justify-center relative min-h-0 min-w-0 p-0.5 sm:p-1">
           <div
             id="coloring-canvas-container"
             onClick={handleCanvasClick}
-            className="relative h-full max-h-[56vh] sm:max-h-[62vh] md:max-h-[68vh] aspect-[4/3] max-w-full bg-white rounded-[24px] sm:rounded-[32px] md:rounded-[36px] shadow-2xl border-2 sm:border-4 border-purple-200 border-b-[6px] sm:border-b-[8px] border-b-cyan-500 overflow-hidden flex items-center justify-center"
+            className="relative h-full max-h-[82vh] aspect-[4/3] max-w-full bg-white rounded-[24px] sm:rounded-[32px] md:rounded-[36px] shadow-2xl border-2 sm:border-4 border-purple-200 border-b-[6px] sm:border-b-[8px] border-b-cyan-500 overflow-hidden flex items-center justify-center"
           >
-            {/* Background Texture grid */}
+            {/* Background Texture Grid */}
             <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#7C3AED_1px,transparent_1px)] [background-size:16px_16px]" />
 
             {/* SVG Coloring Sheet */}
             <svg
               viewBox="0 0 200 260"
-              className="w-full h-full p-2 select-none relative z-10"
+              className="w-full h-full p-2 sm:p-3 select-none relative z-10"
             >
               {currentPage.svgPaths.map((path) => {
                 const fill = pathFills[path.id] || path.defaultFill || '#FFFFFF';
@@ -510,8 +596,8 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
             {/* Freehand HTML5 Canvas Overlay */}
             <canvas
               ref={canvasRef}
-              width={600}
-              height={500}
+              width={700}
+              height={560}
               onMouseDown={startDrawing}
               onMouseMove={draw}
               onMouseUp={stopDrawing}
@@ -545,87 +631,6 @@ export const ColoringScreen: React.FC<ColoringScreenProps> = ({
           </div>
         </div>
 
-        {/* Optional Right Sticker Tray (when Sticker tool selected) OR Mascot Helper */}
-        <div className="w-16 sm:w-20 md:w-24 shrink-0 flex flex-col items-center justify-center">
-          {activeTool === 'sticker' ? (
-            <div className="bg-white p-1.5 sm:p-2 rounded-2xl sm:rounded-3xl border-2 border-purple-100 shadow-xl flex flex-col gap-1 sm:gap-1.5 max-h-[65vh] overflow-y-auto kids-scrollbar">
-              <span className="text-[8px] sm:text-[9px] font-black text-center text-purple-900 uppercase">
-                Stickers
-              </span>
-              {UNLOCKABLE_STICKERS.map(s => (
-                <button
-                  key={s.id}
-                  id={`sticker-pick-${s.id}`}
-                  onClick={() => {
-                    sound.playPop();
-                    setActiveSticker(s.emojiOrSvg);
-                  }}
-                  className={`p-1 sm:p-1.5 rounded-xl sm:rounded-2xl text-xl sm:text-2xl flex items-center justify-center transition-all cursor-pointer ${
-                    activeSticker === s.emojiOrSvg
-                      ? 'bg-amber-400 scale-110 shadow-lg border-2 border-white'
-                      : 'bg-slate-100 hover:bg-purple-50'
-                  }`}
-                  title={s.name}
-                >
-                  {s.emojiOrSvg}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="hidden lg:flex flex-col items-center">
-              <MascotRoo
-                size="sm"
-                message={
-                  activeTool === 'bucket'
-                    ? 'Tap any spot to fill it with color!'
-                    : activeTool === 'glow'
-                    ? 'Draw magical neon glowing lines!'
-                    : 'Looking super creative!'
-                }
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bottom Horizontal Color Palette Tray */}
-      <div 
-        id="color-palette-tray"
-        className="mt-1 sm:mt-2 bg-white px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl sm:rounded-3xl border-2 border-purple-100 shadow-xl flex items-center gap-1.5 sm:gap-2 overflow-x-auto kids-scrollbar z-20 shrink-0"
-      >
-        <span className="text-[10px] sm:text-xs font-black text-purple-900 uppercase tracking-wider pl-1 hidden sm:inline whitespace-nowrap">
-          Colors:
-        </span>
-        {PALETTE_COLORS.map((c, idx) => {
-          const isSelected = selectedColor === c.hex;
-          return (
-            <motion.button
-              key={c.id}
-              id={`color-swatch-${c.id}`}
-              onClick={() => {
-                sound.playColorChime(idx);
-                setSelectedColor(c.hex);
-              }}
-              whileHover={{ scale: 1.18, y: -2 }}
-              whileTap={{ scale: 0.9 }}
-              className={`w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-xl sm:rounded-2xl shrink-0 transition-transform cursor-pointer relative flex items-center justify-center shadow-md ${
-                isSelected
-                  ? 'ring-3 sm:ring-4 ring-purple-600 ring-offset-1 sm:ring-offset-2 ring-offset-white scale-110'
-                  : 'hover:opacity-90'
-              }`}
-              style={{
-                backgroundColor: c.hex,
-                borderColor: c.border,
-                borderWidth: '2.5px'
-              }}
-              title={c.name}
-            >
-              {isSelected && (
-                <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-white stroke-[3] drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" />
-              )}
-            </motion.button>
-          );
-        })}
       </div>
     </div>
   );

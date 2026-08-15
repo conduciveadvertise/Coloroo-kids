@@ -7,9 +7,10 @@ import {
   Wifi, 
   BatteryMedium, 
   Clock, 
-  Maximize2,
-  Sparkles,
-  Smartphone
+  Maximize2, 
+  Sparkles, 
+  Smartphone,
+  ShieldCheck
 } from 'lucide-react';
 import { ChildProfile } from '../types';
 import { sound } from '../services/soundEffects';
@@ -32,6 +33,7 @@ export const TabletStatusBar: React.FC<TabletStatusBarProps> = ({
   onOpenProfile,
   isTabletFrame,
   onToggleTabletFrame,
+  onOpenParentGate,
   remainingMinutes = 25
 }) => {
   const handleStarTap = () => {
@@ -142,6 +144,24 @@ export const TabletStatusBar: React.FC<TabletStatusBarProps> = ({
           <Smartphone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span className="text-[9px] sm:text-[10px] font-black uppercase">
             {isTabletFrame ? 'Tablet' : 'Full'}
+          </span>
+        </motion.button>
+
+        {/* Parents Gate / Settings Button */}
+        <motion.button
+          id="top-right-parent-btn"
+          onClick={() => {
+            sound.playPop();
+            onOpenParentGate();
+          }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
+          className="p-1.5 sm:p-2 md:p-2.5 rounded-xl sm:rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 border-2 border-amber-200 cursor-pointer flex items-center gap-1.5 shadow-sm"
+          title="Parent Dashboard & Settings"
+        >
+          <ShieldCheck className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-600" />
+          <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider hidden md:inline">
+            Parents
           </span>
         </motion.button>
 

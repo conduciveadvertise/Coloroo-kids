@@ -61,6 +61,13 @@ export default function App() {
       }
     } catch {}
 
+    try {
+      import('expo-screen-orientation').then((ScreenOrientation) => {
+        if (ScreenOrientation && typeof ScreenOrientation.lockAsync === 'function') {
+          ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+        }
+      }).catch(() => {});
+    } catch {}
   }, []);
 
   // Sync storage on state change
@@ -146,20 +153,22 @@ export default function App() {
             : 'max-w-none max-h-none rounded-none border-0'
         }`}
       >
-        {/* Top Tablet Status Header */}
-        <TabletStatusBar
-          profile={profile}
-          soundEnabled={soundEnabled}
-          onToggleSound={toggleSound}
-          onOpenProfile={() => setIsParentGateOpen(true)}
-          isTabletFrame={isTabletFrame}
-          onToggleTabletFrame={() => setIsTabletFrame(!isTabletFrame)}
-          onOpenParentGate={() => setIsParentGateOpen(true)}
-          remainingMinutes={remainingMinutes}
-        />
+        {/* Top Tablet Status Header (HOME SCREEN ONLY) */}
+        {currentScreen === 'home' && (
+          <TabletStatusBar
+            profile={profile}
+            soundEnabled={soundEnabled}
+            onToggleSound={toggleSound}
+            onOpenProfile={() => setIsParentGateOpen(true)}
+            isTabletFrame={isTabletFrame}
+            onToggleTabletFrame={() => setIsTabletFrame(!isTabletFrame)}
+            onOpenParentGate={() => setIsParentGateOpen(true)}
+            remainingMinutes={remainingMinutes}
+          />
+        )}
 
         {/* Active Screen Viewport (Full Screen Width & Height - No Bottom Dock) */}
-        <main className="flex-1 w-full h-full min-h-0 flex flex-col overflow-hidden relative bg-[#F3E8FF]/60">
+        <main className="flex-1 w-full h-full min-h-0 flex flex-col overflow-hidden relative bg-[#F3E8FF]">
           <AnimatePresence mode="wait">
             {currentScreen === 'home' && (
               <motion.div
@@ -175,6 +184,7 @@ export default function App() {
                   onNavigate={(screen) => setCurrentScreen(screen)}
                   onSelectColoringPage={handleSelectColoringPage}
                   onAddStars={handleAddStars}
+                  onOpenParentGate={() => setIsParentGateOpen(true)}
                 />
               </motion.div>
             )}
