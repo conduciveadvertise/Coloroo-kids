@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Coloroo Kids",
+    "slug": "coloroo-kids",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F3E8FF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.colorookids.app",
+      "requireFullScreen": true
+    },
+    "android": {
+      "package": "com.colorookids.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F3E8FF"
+      },
+      "softwareKeyboardLayoutMode": "pan"
+    },
+    "web": {
+      "favicon": "./public/favicon.ico"
+    }
+  }
+}
