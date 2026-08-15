@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, RotateCcw, Sparkles } from 'lucide-react';
+import { ChevronLeft, RotateCcw, Star, Sparkles } from 'lucide-react';
 import { sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
 
@@ -27,8 +27,19 @@ const BASE_CARDS = [
   { pairId: 4, emoji: '🐼', name: 'Panda' },
 ];
 
+interface FloatingBalloon {
+  id: number;
+  color: string;
+  xPos: number;       // percentage 10% - 85%
+  duration: number;   // speed
+  delay: number;
+  hasStar: boolean;
+}
+
+const BALLOON_COLORS = ['#FF4D4D', '#FF9F43', '#10AC84', '#00D2D3', '#54A0FF', '#5F27CD', '#FF6B6B', '#FECA57'];
+
 export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) => {
-  const [activeTab, setActiveTab] = useState<GameTab>('memory');
+  const [activeTab, setActiveTab] = useState<GameTab>('balloon');
 
   // --- MEMORY MATCH STATE ---
   const [cards, setCards] = useState<MemoryCard[]>([]);
@@ -36,8 +47,26 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
   const [matchedPairsCount, setMatchedPairsCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // --- BALLOON POP STATE ---
-  const [balloonScore, setBalloonScore] = useState(0);
+  // --- BALLOON POP STATE (Rising Floating Physics) ---
+  const [poppedCount, setPoppedCount] = useState(0);
+  const [starsWon, setStarsWon] = useState(0);
+  const [balloons, setBalloons] = useState<FloatingBalloon[]>([]);
+  const [floatingStars, setFloatingStars] = useState<{ id: number; x: number; y: number }[]>([]);
+
+  const spawnBalloons = () => {
+    const list: FloatingBalloon[] = [];
+    for (let i = 0; i < 7; i++) {
+      list.push({
+        id: Date.now() + i + Math.random(),
+        color: BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)],
+        xPos: 8 + Math.random() * 78,
+        duration: 4.5 + Math.random() * 2.5,
+        delay: Math.random() * 2,
+        hasStar: Math.random() < 0.35 // 35% chance to give star
+      });
+    }
+    setBalloons(list);
+  };
 
   const initMemoryGame = () => {
     const deck: MemoryCard[] = [];
@@ -46,7 +75,6 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
       deck.push({ id: idCounter++, pairId: item.pairId, emoji: item.emoji, name: item.name, isFlipped: false, isMatched: false });
       deck.push({ id: idCounter++, pairId: item.pairId, emoji: item.emoji, name: item.name, isFlipped: false, isMatched: false });
     });
-    // Shuffle deck
     deck.sort(() => Math.random() - 0.5);
     setCards(deck);
     setFlippedCards([]);
@@ -56,33 +84,65 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
 
   useEffect(() => {
     initMemoryGame();
+    spawnBalloons();
   }, []);
 
+  // Pop a Rising Balloon
+  const handlePopBalloon = (balloon: FloatingBalloon, e: React.MouseEvent) => {
+    sound.playPop();
+    setPoppedCount(prev => prev + 1);
+
+    // Remove popped balloon and respawn
+    setBalloons(prev => {
+      const filtered = prev.filter(b => b.id !== balloon.id);
+      const newBalloon: FloatingBalloon = {
+        id: Date.now() + Math.random(),
+        color: BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)],
+        xPos: 8 + Math.random() * 78,
+        duration: 4.2 + Math.random() * 2.5,
+        delay: 0.1,
+        hasStar: Math.random() < 0.35
+      };
+      return [...filtered, newBalloon];
+    });
+
+    if (balloon.hasStar) {
+      sound.playCorrect();
+      setStarsWon(s => s + 1);
+      onAddStars(1);
+
+      // Star particle animation
+      const rect = (e.target as HTMLElement).getBoundingClientRect();
+      const starId = Date.now();
+      setFloatingStars(prev => [...prev, { id: starId, x: rect.left + rect.width / 2, y: rect.top }]);
+      setTimeout(() => {
+        setFloatingStars(prev => prev.filter(s => s.id !== starId));
+      }, 900);
+    }
+  };
+
+  // Memory card click
   const handleCardClick = (cardId: number) => {
     if (isProcessing) return;
-
-    const clickedCard = cards.find(c => c.id === cardId);
-    if (!clickedCard || clickedCard.isFlipped || clickedCard.isMatched) return;
+    const clicked = cards.find(c => c.id === cardId);
+    if (!clicked || clicked.isFlipped || clicked.isMatched) return;
 
     sound.playCardFlip();
-
     const newCards = cards.map(c => c.id === cardId ? { ...c, isFlipped: true } : c);
     setCards(newCards);
-
     const newFlipped = [...flippedCards, cardId];
     setFlippedCards(newFlipped);
 
     if (newFlipped.length === 2) {
       setIsProcessing(true);
-      const firstCard = newCards.find(c => c.id === newFlipped[0])!;
-      const secondCard = newCards.find(c => c.id === newFlipped[1])!;
+      const first = newCards.find(c => c.id === newFlipped[0])!;
+      const second = newCards.find(c => c.id === newFlipped[1])!;
 
-      if (firstCard.pairId === secondCard.pairId) {
-        // Matched!
+      if (first.pairId === second.pairId) {
         setTimeout(() => {
           sound.playCorrect();
-          sound.speak(`Matched ${firstCard.name}!`);
-          setCards(prev => prev.map(c => (c.id === firstCard.id || c.id === secondCard.id) ? { ...c, isMatched: true } : c));
+          sound.speak(`Matched ${first.name}!`);
+          setCards(prev => prev.map(c => (c.id === first.id || c.id === second.id) ? { ...c, isMatched: true } : c));
           setFlippedCards([]);
           setIsProcessing(false);
           const nextCount = matchedPairsCount + 1;
@@ -90,20 +150,17 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
 
           if (nextCount === 4) {
             sound.playFanfare();
-            sound.speak("Woohoo! You matched all pairs! You are a superstar!");
-            try {
-              confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
-            } catch {}
+            sound.speak("Superstar! You solved the memory match!");
+            try { confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } }); } catch {}
             onAddStars(3);
           }
-        }, 500);
+        }, 400);
       } else {
-        // Not matched -> Flip back
         setTimeout(() => {
-          setCards(prev => prev.map(c => (c.id === firstCard.id || c.id === secondCard.id) ? { ...c, isFlipped: false } : c));
+          setCards(prev => prev.map(c => (c.id === first.id || c.id === second.id) ? { ...c, isFlipped: false } : c));
           setFlippedCards([]);
           setIsProcessing(false);
-        }, 900);
+        }, 800);
       }
     }
   };
@@ -128,11 +185,11 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
           </h1>
         </div>
 
-        {/* Tabs */}
+        {/* Tab Switcher */}
         <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
           {[
-            { id: 'memory' as GameTab, label: '🃏 Memory Match' },
             { id: 'balloon' as GameTab, label: '🎈 Balloon Pop' },
+            { id: 'memory' as GameTab, label: '🃏 Memory Match' },
             { id: 'puzzle' as GameTab, label: '🧩 Jigsaw Puzzle' }
           ].map(t => (
             <button
@@ -153,10 +210,96 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
         </div>
       </div>
 
-      {/* Game Content Box */}
+      {/* Main Game Stage */}
       <div className="flex-1 bg-white rounded-[28px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between min-h-0 relative overflow-hidden">
         
-        {/* ================= TAB 1: MEMORY MATCH ================= */}
+        {/* ================= TAB 1: BALLOON POP (RISING FROM BOTTOM) ================= */}
+        {activeTab === 'balloon' && (
+          <div className="w-full h-full relative overflow-hidden flex flex-col justify-between">
+            {/* Top Stat Bar */}
+            <div className="flex items-center justify-between z-20 px-2 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-black text-purple-950 bg-purple-50 px-3 py-1 rounded-xl border border-purple-100">
+                  Popped: <span className="text-rose-500">{poppedCount}</span> 🎈
+                </span>
+                <span className="text-xs font-black text-amber-600 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-amber-400" /> Stars Found: {starsWon}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playPop();
+                  setPoppedCount(0);
+                  setStarsWon(0);
+                  spawnBalloons();
+                }}
+                className="px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-black flex items-center gap-1 cursor-pointer border border-purple-100"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reset
+              </button>
+            </div>
+
+            {/* Rising Balloons Interactive Sky */}
+            <div className="flex-1 relative w-full h-full overflow-hidden">
+              {balloons.map((b) => (
+                <motion.div
+                  key={b.id}
+                  initial={{ y: '120vh', opacity: 0.9 }}
+                  animate={{ y: '-140px', opacity: 1 }}
+                  transition={{
+                    duration: b.duration,
+                    repeat: Infinity,
+                    ease: 'linear',
+                    delay: b.delay
+                  }}
+                  style={{ left: `${b.xPos}%` }}
+                  onClick={(e) => handlePopBalloon(b, e)}
+                  className="absolute bottom-0 cursor-pointer active:scale-75 transition-transform"
+                >
+                  <div className="relative flex flex-col items-center group">
+                    {/* SVG Realistic Color Balloon */}
+                    <svg width="60" height="75" viewBox="0 0 60 75" className="drop-shadow-md">
+                      <path
+                        d="M30,5 C48,5 55,22 55,38 C55,54 40,62 33,65 L32,68 L28,68 L27,65 C20,62 5,54 5,38 C5,22 12,5 30,5 Z"
+                        fill={b.color}
+                      />
+                      <ellipse cx="22" cy="20" rx="6" ry="12" fill="white" opacity="0.35" transform="rotate(-20 22 20)" />
+                      <polygon points="30,68 34,73 26,73" fill={b.color} />
+                    </svg>
+                    {/* Balloon String */}
+                    <div className="w-[1.5px] h-9 bg-slate-400 -mt-0.5 transform rotate-2"></div>
+
+                    {b.hasStar && (
+                      <span className="absolute top-4 text-xs">⭐</span>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+
+              {/* Floating Star Animation on Pop */}
+              {floatingStars.map(s => (
+                <motion.div
+                  key={s.id}
+                  initial={{ opacity: 1, y: 0, scale: 1 }}
+                  animate={{ opacity: 0, y: -60, scale: 1.6 }}
+                  transition={{ duration: 0.8 }}
+                  className="fixed z-50 pointer-events-none text-2xl font-black text-amber-500"
+                  style={{ left: s.x, top: s.y }}
+                >
+                  ⭐ +1
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="text-center z-20 shrink-0">
+              <span className="text-[10px] font-bold text-slate-400">
+                Tap rising balloons as they float up! Golden stars hide inside some balloons!
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ================= TAB 2: MEMORY MATCH ================= */}
         {activeTab === 'memory' && (
           <div className="w-full h-full flex flex-col justify-between">
             <div className="flex items-center justify-between shrink-0 mb-1 px-1">
@@ -174,8 +317,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
               </button>
             </div>
 
-            {/* 2x4 Card Grid */}
-            <div className="flex-1 grid grid-cols-4 gap-2.5 sm:gap-3 p-1 items-stretch">
+            <div className="flex-1 grid grid-cols-4 gap-2.5 p-1 items-stretch">
               {cards.map(c => (
                 <motion.button
                   key={c.id}
@@ -191,50 +333,13 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
                   }`}
                 >
                   {c.isFlipped || c.isMatched ? (
-                    <span className="text-4xl sm:text-5xl drop-shadow-md animate-bounce-gentle">{c.emoji}</span>
+                    <span className="text-4xl sm:text-5xl drop-shadow-md">{c.emoji}</span>
                   ) : (
                     <span className="text-2xl text-amber-300 drop-shadow">★</span>
                   )}
                 </motion.button>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* ================= TAB 2: BALLOON POP ================= */}
-        {activeTab === 'balloon' && (
-          <div className="w-full h-full flex flex-col justify-between items-center py-2">
-            <div className="flex items-center justify-between w-full px-2">
-              <span className="text-xs font-black text-purple-900">
-                Popped: <span className="text-rose-500 font-extrabold">{balloonScore}</span> Balloons
-              </span>
-              <button
-                onClick={() => setBalloonScore(0)}
-                className="px-3 py-1 rounded-xl bg-purple-100 text-purple-900 text-xs font-black flex items-center gap-1 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Reset
-              </button>
-            </div>
-
-            <div className="flex-1 flex items-center justify-center gap-4 flex-wrap my-2">
-              {['🎈', '🎈', '🎈', '🎈', '🎈', '🎈'].map((b, i) => (
-                <motion.button
-                  key={i + balloonScore}
-                  whileHover={{ scale: 1.15 }}
-                  whileTap={{ scale: 0.8 }}
-                  onClick={() => {
-                    sound.playPop();
-                    sound.speak("Pop!");
-                    setBalloonScore(s => s + 1);
-                    onAddStars(1);
-                  }}
-                  className="text-6xl sm:text-7xl cursor-pointer hover:drop-shadow-lg transition-transform"
-                >
-                  {b}
-                </motion.button>
-              ))}
-            </div>
-            <span className="text-[10px] font-bold text-slate-400">Tap balloons to pop them and earn stars!</span>
           </div>
         )}
 
@@ -248,9 +353,7 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) 
               onClick={() => {
                 sound.playFanfare();
                 sound.speak("You solved the mystery puzzle!");
-                try {
-                  confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-                } catch {}
+                try { confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } }); } catch {}
               }}
               className="mt-4 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-2xl shadow-md cursor-pointer active:scale-95"
             >

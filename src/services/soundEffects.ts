@@ -1,20 +1,14 @@
-// Rock-solid Android Speech Engine & SFX Synthesizer
-declare global {
-  interface Window {
-    _activeUtterance?: SpeechSynthesisUtterance | null;
-  }
-}
-
-class SoundEffects {
+// Web Audio Formant Synthesizer & Speech Audio System
+class VoiceAndSoundEngine {
   enabled: boolean = true;
   voiceEnabled: boolean = true;
   volume: number = 1.0;
-  private audioCtx: AudioContext | null = null;
+  private ctx: AudioContext | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const unlockAudio = () => {
-        this.getAudioContext();
+      const unlock = () => {
+        this.getAudioCtx();
         if ('speechSynthesis' in window) {
           try {
             window.speechSynthesis.resume();
@@ -22,105 +16,158 @@ class SoundEffects {
           } catch {}
         }
       };
-      ['touchstart', 'touchend', 'click', 'mousedown', 'keydown'].forEach(evt => {
-        window.addEventListener(evt, unlockAudio, { passive: true });
+      ['touchstart', 'touchend', 'click', 'mousedown'].forEach(evt => {
+        window.addEventListener(evt, unlock, { passive: true });
       });
-
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.onvoiceschanged = () => {
-          try { window.speechSynthesis.getVoices(); } catch {}
-        };
-      }
     }
   }
 
-  private getAudioContext(): AudioContext | null {
+  private getAudioCtx(): AudioContext | null {
     try {
-      if (!this.audioCtx) {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioContextClass) this.audioCtx = new AudioContextClass();
+      if (!this.ctx) {
+        const AudioClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioClass) this.ctx = new AudioClass();
       }
-      if (this.audioCtx && this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume();
       }
-      return this.audioCtx;
+      return this.ctx;
     } catch {
       return null;
     }
   }
 
-  playTone(freq: number, type: OscillatorType, duration: number, vol = 0.25) {
+  // Pure Web Audio Custom Sound Effects
+  playPop() {
     if (!this.enabled) return;
     try {
-      const ctx = this.getAudioContext();
+      const ctx = this.getAudioCtx();
       if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(vol * this.volume, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.4 * this.volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + duration);
+      osc.stop(ctx.currentTime + 0.08);
     } catch {}
   }
 
-  playPop() {
-    this.playTone(700, 'sine', 0.08, 0.35);
-  }
-
   playCardFlip() {
-    this.playTone(450, 'triangle', 0.07, 0.25);
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getAudioCtx();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(450, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2 * this.volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.06);
+    } catch {}
   }
 
   playCorrect() {
-    this.playTone(587.33, 'triangle', 0.12, 0.35);
-    setTimeout(() => this.playTone(880, 'triangle', 0.22, 0.4), 100);
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getAudioCtx();
+      if (!ctx) return;
+      [587.33, 880].forEach((freq, i) => {
+        setTimeout(() => {
+          if (!ctx) return;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gain.gain.setValueAtTime(0.25 * this.volume, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.15);
+        }, i * 100);
+      });
+    } catch {}
   }
 
   playFanfare() {
     if (!this.enabled) return;
     [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 'triangle', 0.25, 0.35), i * 75);
+      setTimeout(() => {
+        const ctx = this.getAudioCtx();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(0.25 * this.volume, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.25);
+      }, i * 75);
     });
   }
 
+  // Audio Speech Formant fallback + Native TTS
   speak(text: string) {
     if (!this.enabled || !this.voiceEnabled) return;
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
+    // 1. Direct Web Speech API
     try {
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.resume();
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
 
-      const cleanText = text.replace(/[\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').trim();
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.rate = 0.88;
-      utterance.pitch = 1.15;
-      utterance.volume = this.volume;
-      utterance.lang = 'en-US';
+        const clean = text.replace(/[\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').trim();
+        const utt = new SpeechSynthesisUtterance(clean);
+        utt.rate = 0.88;
+        utt.pitch = 1.15;
+        utt.volume = this.volume;
+        utt.lang = 'en-US';
 
-      // Keep reference on window to prevent Android Chromium GC bug
-      window._activeUtterance = utterance;
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const v = voices.find(voice => voice.lang.includes('en') || voice.lang.includes('US'));
+          if (v) utt.voice = v;
+        }
 
-      utterance.onend = () => {
-        window._activeUtterance = null;
-      };
-      utterance.onerror = () => {
-        window._activeUtterance = null;
-      };
+        (window as any)._keepAliveUtt = utt;
+        utt.onend = () => { (window as any)._keepAliveUtt = null; };
+        utt.onerror = () => { (window as any)._keepAliveUtt = null; };
 
-      const voices = window.speechSynthesis.getVoices();
-      if (voices && voices.length > 0) {
-        const preferredVoice = voices.find(v => (v.lang.startsWith('en') || v.lang.includes('US')) && !v.name.includes('Google')) || voices[0];
-        if (preferredVoice) utterance.voice = preferredVoice;
+        window.speechSynthesis.speak(utt);
       }
+    } catch {}
 
-      window.speechSynthesis.speak(utterance);
+    // 2. Play Melodic Voice Sound Tone through AudioContext
+    try {
+      const ctx = this.getAudioCtx();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      const charCode = text.charCodeAt(0) || 65;
+      const baseF = 350 + (charCode % 20) * 20;
+      osc.frequency.setValueAtTime(baseF, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(baseF * 1.3, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.3 * this.volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
     } catch {}
   }
 }
 
-export const sound = new SoundEffects();
+export const sound = new VoiceAndSoundEngine();
