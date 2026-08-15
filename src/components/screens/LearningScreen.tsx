@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Volume2, RotateCcw, Sparkles, Check } from 'lucide-react';
+import { ChevronLeft, Volume2, RotateCcw, Star, Check } from 'lucide-react';
 import { sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
 
@@ -11,7 +11,6 @@ interface LearningScreenProps {
 
 type TabType = 'abc' | 'math' | 'shapes' | 'animals';
 
-// 1. Phonics ABC Exact 26 Letters & Sentences
 const PHONICS_DATA = [
   { letter: 'A', word: 'Apple', icon: '🍎', soundTxt: 'AH', sentence: 'A is for Apple! Ah, ah, Apple!' },
   { letter: 'B', word: 'Butterfly', icon: '🦋', soundTxt: 'BUH', sentence: 'B is for Butterfly! Buh, buh, Butterfly!' },
@@ -41,7 +40,6 @@ const PHONICS_DATA = [
   { letter: 'Z', word: 'Zebra', icon: '🦓', soundTxt: 'ZUH', sentence: 'Z is for Zebra! Zuh, zuh, Zebra!' },
 ];
 
-// 2. Math Counting Levels (1 to 10)
 const MATH_LEVELS = [
   { target: 1, name: 'One (Apple)', emoji: '🍎' },
   { target: 2, name: 'Two (Ducks)', emoji: '🦆' },
@@ -55,7 +53,6 @@ const MATH_LEVELS = [
   { target: 10, name: 'Ten (Rockets)', emoji: '🚀' },
 ];
 
-// 3. Shapes & Colors Match Questions
 const SHAPE_MATCH_DATA = [
   { id: 'star', prompt: 'MATCH COLOR!', name: 'Yellow Star', icon: '⭐', correctColor: 'Yellow' },
   { id: 'heart', prompt: 'MATCH COLOR!', name: 'Red Heart', icon: '❤️', correctColor: 'Red' },
@@ -66,15 +63,14 @@ const SHAPE_MATCH_DATA = [
 ];
 
 const COLOR_OPTIONS = [
-  { name: 'Yellow', bg: 'bg-[#FDCB6E]', hover: 'hover:bg-[#f39c12]' },
-  { name: 'Red', bg: 'bg-[#FF7675]', hover: 'hover:bg-[#e17055]' },
-  { name: 'Blue', bg: 'bg-[#74B9FF]', hover: 'hover:bg-[#0984e3]' },
-  { name: 'Green', bg: 'bg-[#55EFC4]', hover: 'hover:bg-[#00cec9]' },
-  { name: 'Purple', bg: 'bg-[#A29BFE]', hover: 'hover:bg-[#6c5ce7]' },
-  { name: 'Orange', bg: 'bg-[#FFA502]', hover: 'hover:bg-[#e67e22]' },
+  { name: 'Yellow', bg: 'bg-[#FDCB6E]' },
+  { name: 'Red', bg: 'bg-[#FF7675]' },
+  { name: 'Blue', bg: 'bg-[#74B9FF]' },
+  { name: 'Green', bg: 'bg-[#55EFC4]' },
+  { name: 'Purple', bg: 'bg-[#A29BFE]' },
+  { name: 'Orange', bg: 'bg-[#FFA502]' },
 ];
 
-// 4. Animal Sound Explorer
 const ANIMALS_DATA = [
   { name: 'Coloroo Kangaroo', icon: '🦘', category: 'OUTBACK', fact: 'Boing! Boing!', soundText: 'Boing! Boing! Kangaroo hops high!' },
   { name: 'Playful Dolphin', icon: '🐬', category: 'OCEAN', fact: 'Click-click! Squeak!', soundText: 'Click click! Dolphins love jumping!' },
@@ -86,29 +82,21 @@ const ANIMALS_DATA = [
 
 export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddStars }) => {
   const [activeTab, setActiveTab] = useState<TabType>('abc');
-
-  // ABC state
   const [selectedPhonic, setSelectedPhonic] = useState(PHONICS_DATA[0]);
-
-  // Math State
-  const [mathIndex, setMathIndex] = useState(2); // Start with 3 Balloons like screenshot
+  const [mathIndex, setMathIndex] = useState(2);
   const [countedItems, setCountedItems] = useState<number[]>([]);
-  const currentMath = MATH_LEVELS[mathIndex];
-
-  // Shapes Match State
   const [shapeIndex, setShapeIndex] = useState(0);
+  const [selectedAnimal, setSelectedAnimal] = useState(ANIMALS_DATA[5]);
+  const [celebrationMsg, setCelebrationMsg] = useState<string | null>(null);
+
+  const currentMath = MATH_LEVELS[mathIndex];
   const currentShape = SHAPE_MATCH_DATA[shapeIndex];
 
-  // Animals State
-  const [selectedAnimal, setSelectedAnimal] = useState(ANIMALS_DATA[5]); // Little Froggy
-
-  // ABC Tap Handler
   const handleLetterClick = (item: typeof PHONICS_DATA[0]) => {
     setSelectedPhonic(item);
     sound.speak(item.sentence);
   };
 
-  // Math Tap Item Handler (Counts 1, 2, 3...)
   const handleTapMathItem = (idx: number) => {
     if (countedItems.includes(idx)) return;
     const nextCount = countedItems.length + 1;
@@ -117,35 +105,36 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
 
     sound.speak(`${nextCount}`);
 
-    // If all items counted
     if (nextCount === currentMath.target) {
       sound.playFanfare();
-      setTimeout(() => {
-        sound.speak(`Awesome! That is ${currentMath.name}!`);
-        try {
-          confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-        } catch {}
-      }, 400);
+      try {
+        confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+      } catch {}
+      setCelebrationMsg(`Great job counting ${currentMath.name}! ⭐`);
+      onAddStars(2);
     }
   };
 
   const handleNextMath = () => {
     sound.playPop();
     setCountedItems([]);
+    setCelebrationMsg(null);
     setMathIndex((prev) => (prev + 1) % MATH_LEVELS.length);
   };
 
-  // Shape Match Handler
   const handleColorChoice = (colorName: string) => {
     if (colorName === currentShape.correctColor) {
       sound.playCorrect();
       sound.speak(`Correct! ${currentShape.name}!`);
       try {
-        confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
+        confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
       } catch {}
+      setCelebrationMsg(`Super! That is ${currentShape.name}! 🎨`);
+      onAddStars(2);
       setTimeout(() => {
+        setCelebrationMsg(null);
         setShapeIndex((prev) => (prev + 1) % SHAPE_MATCH_DATA.length);
-      }, 1000);
+      }, 1500);
     } else {
       sound.playPop();
       sound.speak(`Oops! Try again! Find ${currentShape.correctColor}!`);
@@ -154,7 +143,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
 
   return (
     <div className="w-full h-full flex flex-col justify-between p-2 sm:p-3 select-none overflow-hidden bg-gradient-to-br from-[#F5F0FF] via-[#F1E8FF] to-[#EBE0FF]">
-      {/* Top Navigation Bar */}
+      {/* Top Header */}
       <div className="flex items-center justify-between gap-2 shrink-0 mb-1">
         <div className="flex items-center gap-2">
           <button
@@ -172,7 +161,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </h1>
         </div>
 
-        {/* 4 Exact Tabs: ABC, Math, Shapes, Animals */}
+        {/* 4 Tabs */}
         <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
           {[
             { id: 'abc' as TabType, label: 'abc ABC' },
@@ -185,6 +174,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
               onClick={() => {
                 sound.playPop();
                 setActiveTab(t.id);
+                setCelebrationMsg(null);
               }}
               className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === t.id
@@ -198,13 +188,12 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Content */}
       <div className="flex-1 bg-white rounded-[28px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between min-h-0 relative overflow-hidden">
         
         {/* ================= TAB 1: PHONICS ABC ================= */}
         {activeTab === 'abc' && (
           <div className="w-full h-full flex gap-3 min-h-0">
-            {/* Left 26 Letters Column List */}
             <div className="w-48 sm:w-56 flex flex-col justify-between border-r border-purple-100 pr-2">
               <div className="shrink-0 mb-1">
                 <span className="text-[9px] font-black text-purple-900 uppercase block">
@@ -233,7 +222,6 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
               </div>
             </div>
 
-            {/* Right Large Showcase Stage */}
             <div className="flex-1 bg-[#FFF5F5] rounded-[24px] p-3 border-2 border-rose-200 border-b-[5px] border-b-rose-400 flex flex-col justify-between items-center text-center relative">
               <span className="bg-[#FF2E63] text-white text-[10px] font-black px-3 py-0.5 rounded-full uppercase shadow-sm">
                 SOUND: /{selectedPhonic.soundTxt}/
@@ -273,13 +261,11 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
               </button>
             </div>
 
-            {/* Target Badge */}
             <div className="bg-amber-50 border-2 border-amber-200 px-6 py-2 rounded-2xl shadow-sm text-center">
               <span className="text-2xl font-black text-amber-500 font-['Fredoka'] mr-2">{currentMath.target}</span>
               <span className="text-base font-black text-slate-800 font-['Fredoka']">{currentMath.name}</span>
             </div>
 
-            {/* Interactive Tap Boxes */}
             <div className="flex items-center justify-center gap-3 my-2 flex-wrap">
               {Array.from({ length: currentMath.target }).map((_, i) => {
                 const isTapped = countedItems.includes(i);
@@ -307,10 +293,9 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* ================= TAB 3: SHAPES MATCH COLOR ================= */}
+        {/* ================= TAB 3: SHAPES MATCH ================= */}
         {activeTab === 'shapes' && (
           <div className="w-full h-full flex items-center justify-around px-4">
-            {/* Shape Target Card */}
             <div className="w-48 bg-[#F0FBFF] rounded-[24px] p-4 border-2 border-cyan-200 border-b-[5px] border-b-cyan-400 shadow-md text-center flex flex-col items-center justify-center">
               <span className="text-[10px] font-black text-cyan-700 tracking-wider mb-2">
                 {currentShape.prompt}
@@ -319,13 +304,12 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
               <span className="text-sm font-black text-slate-800 font-['Fredoka']">{currentShape.name}</span>
             </div>
 
-            {/* Color Option Buttons */}
             <div className="grid grid-cols-2 gap-2 w-72">
               {COLOR_OPTIONS.map((col) => (
                 <button
                   key={col.name}
                   onClick={() => handleColorChoice(col.name)}
-                  className={`py-3 px-4 rounded-2xl ${col.bg} ${col.hover} text-white font-black text-xs shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all text-center flex items-center justify-center gap-1.5`}
+                  className={`py-3 px-4 rounded-2xl ${col.bg} text-white font-black text-xs shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all text-center flex items-center justify-center gap-1.5`}
                 >
                   <span className="drop-shadow">🎨</span>
                   <span>{col.name}</span>
@@ -335,10 +319,9 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* ================= TAB 4: ANIMALS SOUND EXPLORER ================= */}
+        {/* ================= TAB 4: ANIMALS ================= */}
         {activeTab === 'animals' && (
           <div className="w-full h-full flex gap-3 min-h-0">
-            {/* Left Animals Grid */}
             <div className="flex-1 grid grid-cols-3 gap-2 overflow-y-auto no-scrollbar items-center">
               {ANIMALS_DATA.map((a) => {
                 const isSelected = selectedAnimal.name === a.name;
@@ -363,7 +346,6 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
               })}
             </div>
 
-            {/* Right Animal Feature Showcase */}
             <div className="w-64 bg-[#FFFDF0] rounded-[24px] p-3 border-2 border-amber-200 border-b-[5px] border-b-amber-400 shadow-lg flex flex-col justify-between items-center text-center">
               <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 rounded-full uppercase">
                 {selectedAnimal.category}
@@ -384,6 +366,21 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
             </div>
           </div>
         )}
+
+        {/* Dynamic Celebration Toast */}
+        <AnimatePresence>
+          {celebrationMsg && (
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-purple-900 text-white px-5 py-2 rounded-2xl shadow-xl font-black text-xs flex items-center gap-2 border-2 border-amber-300"
+            >
+              <span>🎉</span>
+              <span>{celebrationMsg}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>

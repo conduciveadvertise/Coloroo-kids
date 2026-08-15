@@ -15,8 +15,8 @@ export const ParentGateModal: React.FC<ParentGateModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const [num1, setNum1] = useState(5);
-  const [num2, setNum2] = useState(5);
+  const [num1, setNum1] = useState(6);
+  const [num2, setNum2] = useState(4);
   const [input, setInput] = useState('');
   const [hasError, setHasError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -43,14 +43,14 @@ export const ParentGateModal: React.FC<ParentGateModalProps> = ({
       sound.playCorrect();
       setTimeout(() => {
         onSuccess();
-      }, 100);
+      }, 150);
     } else {
       setHasError(true);
       sound.playPop();
       setTimeout(() => {
         setInput('');
         setHasError(false);
-      }, 600);
+      }, 500);
     }
   };
 
