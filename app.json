@@ -2,6 +2,7 @@
   "expo": {
     "name": "Coloroo Kids",
     "slug": "coloroo-kids",
+    "owner": "chessin",
     "version": "1.0.0",
     "orientation": "landscape",
     "icon": "./assets/icon.png",
@@ -27,6 +28,11 @@
     },
     "web": {
       "favicon": "./public/favicon.ico"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "5163d5a1-22fd-420b-ab12-f03399cfb3a9"
+      }
     }
   }
 }

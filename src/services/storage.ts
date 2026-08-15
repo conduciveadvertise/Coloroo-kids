@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChildProfile, ParentSettings, SavedArtwork } from '../types';
 
 const STORAGE_KEYS = {
@@ -28,53 +29,79 @@ const DEFAULT_PARENT_SETTINGS: ParentSettings = {
   pinCode: '1234'
 };
 
-export const getStoredProfile = (): ChildProfile => {
-  if (typeof window === 'undefined') return DEFAULT_PROFILE;
+// In-memory cache for instantaneous synchronous access
+let cachedProfile: ChildProfile = DEFAULT_PROFILE;
+let cachedArtworks: SavedArtwork[] = [];
+let cachedParentSettings: ParentSettings = DEFAULT_PARENT_SETTINGS;
+
+// Initialize cache from AsyncStorage asynchronously on startup
+(async () => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PROFILE);
-    return raw ? JSON.parse(raw) : DEFAULT_PROFILE;
+    const rawProfile = await AsyncStorage.getItem(STORAGE_KEYS.PROFILE);
+    if (rawProfile) cachedProfile = JSON.parse(rawProfile);
+
+    const rawArt = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_ART);
+    if (rawArt) cachedArtworks = JSON.parse(rawArt);
+
+    const rawSettings = await AsyncStorage.getItem(STORAGE_KEYS.PARENT_SETTINGS);
+    if (rawSettings) cachedParentSettings = JSON.parse(rawSettings);
   } catch {
-    return DEFAULT_PROFILE;
+    // Fallback if AsyncStorage is unavailable
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const rawP = localStorage.getItem(STORAGE_KEYS.PROFILE);
+        if (rawP) cachedProfile = JSON.parse(rawP);
+        const rawA = localStorage.getItem(STORAGE_KEYS.SAVED_ART);
+        if (rawA) cachedArtworks = JSON.parse(rawA);
+        const rawS = localStorage.getItem(STORAGE_KEYS.PARENT_SETTINGS);
+        if (rawS) cachedParentSettings = JSON.parse(rawS);
+      } catch {}
+    }
   }
+})();
+
+export const getStoredProfile = (): ChildProfile => {
+  return cachedProfile;
 };
 
-export const saveStoredProfile = (profile: ChildProfile): void => {
-  if (typeof window === 'undefined') return;
+export const saveStoredProfile = async (profile: ChildProfile): Promise<void> => {
+  cachedProfile = profile;
   try {
-    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
-  } catch {}
+    await AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+  } catch {
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile)); } catch {}
+    }
+  }
 };
 
 export const getStoredArtworks = (): SavedArtwork[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SAVED_ART);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return cachedArtworks;
 };
 
-export const saveStoredArtworks = (artworks: SavedArtwork[]): void => {
-  if (typeof window === 'undefined') return;
+export const saveStoredArtworks = async (artworks: SavedArtwork[]): Promise<void> => {
+  cachedArtworks = artworks;
   try {
-    localStorage.setItem(STORAGE_KEYS.SAVED_ART, JSON.stringify(artworks));
-  } catch {}
+    await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ART, JSON.stringify(artworks));
+  } catch {
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem(STORAGE_KEYS.SAVED_ART, JSON.stringify(artworks)); } catch {}
+    }
+  }
 };
 
 export const getStoredParentSettings = (): ParentSettings => {
-  if (typeof window === 'undefined') return DEFAULT_PARENT_SETTINGS;
+  return cachedParentSettings;
+};
+
+export const saveStoredParentSettings = async (settings: ParentSettings): Promise<void> => {
+  cachedParentSettings = settings;
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PARENT_SETTINGS);
-    return raw ? JSON.parse(raw) : DEFAULT_PARENT_SETTINGS;
+    await AsyncStorage.setItem(STORAGE_KEYS.PARENT_SETTINGS, JSON.stringify(settings));
   } catch {
-    return DEFAULT_PARENT_SETTINGS;
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem(STORAGE_KEYS.PARENT_SETTINGS, JSON.stringify(settings)); } catch {}
+    }
   }
 };
 
-export const saveStoredParentSettings = (settings: ParentSettings): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEYS.PARENT_SETTINGS, JSON.stringify(settings));
-  } catch {}
-};

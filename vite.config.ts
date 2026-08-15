@@ -5,10 +5,16 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    define: {
+      __DEV__: 'true',
+      'global.__DEV__': 'true',
+      'globalThis.__DEV__': 'true',
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'react-native': path.resolve(__dirname, 'src/shims/react-native.ts'),
       },
     },
     server: {

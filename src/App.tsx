@@ -51,6 +51,17 @@ export default function App() {
     pendingArtwork: null
   });
 
+  // Lock screen orientation to landscape for native Expo mobile/tablet
+  useEffect(() => {
+    try {
+      import('expo-screen-orientation').then((ScreenOrientation) => {
+        if (ScreenOrientation && typeof ScreenOrientation.lockAsync === 'function') {
+          ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
+        }
+      }).catch(() => {});
+    } catch {}
+  }, []);
+
   // Sync storage on state change
   useEffect(() => {
     saveStoredProfile(profile);

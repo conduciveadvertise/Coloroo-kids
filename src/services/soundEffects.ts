@@ -1,4 +1,4 @@
-// Web Audio API Procedural Sound Engine for Kids
+// Audio Synthesizer & Speech Engine for Coloroo Kids
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -286,16 +286,40 @@ class SoundEngine {
   }
 
   public speak(text: string): void {
-    if (!this.voiceEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+    if (!this.voiceEnabled) return;
 
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.35; // slightly higher friendly cartoon pitch
-      utterance.volume = this.volume;
-      window.speechSynthesis.speak(utterance);
-    } catch {}
+      import('expo-speech').then((Speech) => {
+        if (Speech && typeof Speech.speak === 'function') {
+          Speech.stop();
+          Speech.speak(text, {
+            rate: 0.95,
+            pitch: 1.25,
+            volume: this.volume
+          });
+        }
+      }).catch(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.0;
+          utterance.pitch = 1.35;
+          utterance.volume = this.volume;
+          window.speechSynthesis.speak(utterance);
+        }
+      });
+    } catch {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.0;
+          utterance.pitch = 1.35;
+          utterance.volume = this.volume;
+          window.speechSynthesis.speak(utterance);
+        } catch {}
+      }
+    }
   }
 }
 
