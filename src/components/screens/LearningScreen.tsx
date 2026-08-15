@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Sparkles, 
-  Volume2, 
-  ChevronLeft, 
-  CheckCircle2, 
-  Star, 
+import { motion } from 'motion/react';
+import {
+  Volume2,
+  ChevronLeft,
   RefreshCw,
   Award
 } from 'lucide-react';
-import { 
-  PHONICS_LIST, 
-  COUNTING_LEVELS, 
-  SHAPES_DATA, 
-  ANIMAL_FACTS, 
-  PhonicsCard, 
-  ShapeItem, 
-  AnimalFact 
+import {
+  PHONICS_LIST,
+  COUNTING_LEVELS,
+  SHAPES_DATA,
+  ANIMAL_FACTS,
+  PhonicsCard,
+  ShapeItem,
+  AnimalFact
 } from '../../data/learningGamesData';
 import { sound } from '../../services/soundEffects';
-import { MascotRoo } from '../MascotRoo';
 import confetti from 'canvas-confetti';
 
 interface LearningScreenProps {
@@ -34,65 +30,46 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({
   onAddStars
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('phonics');
-
-  // Phonics State
   const [selectedPhonics, setSelectedPhonics] = useState<PhonicsCard>(PHONICS_LIST[0]);
-  
-  // Math Counting State
-  const [countLevelIdx, setCountLevelIdx] = useState<number>(2); // Level 3 (Three Balloons)
+  const [countLevelIdx, setCountLevelIdx] = useState<number>(2);
   const currentCountLevel = COUNTING_LEVELS[countLevelIdx];
   const [poppedItems, setPoppedItems] = useState<number[]>([]);
-
-  // Shapes Sorting State
   const [shapeQueue, setShapeQueue] = useState<ShapeItem[]>([...SHAPES_DATA]);
   const [shapeScore, setShapeScore] = useState<number>(0);
   const currentShape = shapeQueue[0];
-
-  // Animal Soundboard State
   const [selectedAnimal, setSelectedAnimal] = useState<AnimalFact>(ANIMAL_FACTS[0]);
 
-  // Phonics Audio Trigger
   const handlePlayPhonics = (card: PhonicsCard) => {
     setSelectedPhonics(card);
     sound.playPop();
     sound.speak(card.audioPrompt);
   };
 
-  // Math Item Tap
   const handleTapCountItem = (index: number) => {
     if (poppedItems.includes(index)) return;
     sound.playPop();
     const updated = [...poppedItems, index];
     setPoppedItems(updated);
-    
-    // Count speech
     sound.speak(`${updated.length}`);
 
-    // If all items counted
     if (updated.length === currentCountLevel.number) {
       setTimeout(() => {
         sound.playFanfare();
         sound.speak(`Awesome! You counted ${currentCountLevel.number} ${currentCountLevel.itemName}!`);
         onAddStars(2);
         try {
-          confetti({
-            particleCount: 50,
-            spread: 60,
-            origin: { y: 0.7 }
-          });
+          confetti({ particleCount: 40, spread: 50, origin: { y: 0.7 } });
         } catch {}
       }, 300);
     }
   };
 
-  // Next Math Level
   const handleNextMathLevel = () => {
     sound.playPop();
     setPoppedItems([]);
     setCountLevelIdx((prev) => (prev + 1) % COUNTING_LEVELS.length);
   };
 
-  // Shape Sorting Target Tap
   const handleSortShape = (colorName: string) => {
     if (!currentShape) return;
     if (currentShape.colorName === colorName) {
@@ -106,9 +83,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({
         sound.playFanfare();
         sound.speak("You are a Shape Champion!");
         onAddStars(3);
-        try {
-          confetti({ particleCount: 60, spread: 60 });
-        } catch {}
+        try { confetti({ particleCount: 50, spread: 50 }); } catch {}
       }
     } else {
       sound.playPop();
@@ -116,7 +91,6 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({
     }
   };
 
-  // Animal Tap
   const handleAnimalTap = (animal: AnimalFact) => {
     setSelectedAnimal(animal);
     sound.playSparkle();
@@ -124,44 +98,36 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col justify-between p-3 sm:p-4 select-none overflow-hidden">
+    <div className="w-full h-full flex flex-col justify-between p-1.5 sm:p-2 select-none overflow-hidden">
       {/* Top Header Row with Tabs */}
-      <div className="flex items-center justify-between gap-3 mb-2 shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 shrink-0 mb-1">
+        <div className="flex items-center gap-1.5">
           <button
-            id="learning-back-btn"
-            onClick={() => {
-              sound.playPop();
-              onBack();
-            }}
-            className="p-2 rounded-2xl bg-white hover:bg-purple-50 active:scale-95 text-slate-700 cursor-pointer flex items-center gap-1 border-2 border-purple-100 shadow-sm"
+            onClick={() => { sound.playPop(); onBack(); }}
+            className="px-2 py-1 rounded-xl bg-white hover:bg-purple-50 active:scale-95 text-slate-700 flex items-center gap-1 border border-purple-100 shadow-sm"
           >
-            <ChevronLeft className="w-5 h-5 text-purple-700" />
-            <span className="text-xs font-bold hidden sm:inline text-purple-900">Home</span>
+            <ChevronLeft className="w-4 h-4 text-purple-700" />
+            <span className="text-[10px] font-bold text-purple-900">Back</span>
           </button>
-          <h1 className="text-lg sm:text-xl font-black text-purple-900 font-['Fredoka']">
-            Learn & Play Discovery 🌟
-          </h1>
+          <span className="text-xs sm:text-sm font-black text-purple-900 font-['Fredoka']">
+            Learn & Play 🌟
+          </span>
         </div>
 
-        {/* Discovery Tab Navigation Pills */}
-        <div className="flex items-center gap-1 sm:gap-2 bg-white p-1.5 rounded-2xl border-2 border-purple-100 shadow-sm">
+        {/* Tab Navigation Pills */}
+        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-purple-100 shadow-sm">
           {[
-            { id: 'phonics' as TabType, label: '🔤 Phonics ABC', color: '#6C5CE7' },
-            { id: 'math' as TabType, label: '🔢 Math Counting', color: '#FF7675' },
-            { id: 'shapes' as TabType, label: '🔷 Shapes & Colors', color: '#00CEC9' },
-            { id: 'animals' as TabType, label: '🦁 Animal World', color: '#FFA502' },
+            { id: 'phonics' as TabType, label: '🔤 ABC' },
+            { id: 'math' as TabType, label: '🔢 Math' },
+            { id: 'shapes' as TabType, label: '🔷 Shapes' },
+            { id: 'animals' as TabType, label: '🦁 Animals' },
           ].map(tab => (
             <button
               key={tab.id}
-              id={`learn-tab-${tab.id}`}
-              onClick={() => {
-                sound.playPop();
-                setActiveTab(tab.id);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              onClick={() => { sound.playPop(); setActiveTab(tab.id); }}
+              className={`px-2 py-0.5 rounded-lg text-[10px] sm:text-xs font-black transition-all ${
                 activeTab === tab.id
-                  ? 'bg-purple-600 text-white shadow-md scale-105 border border-white'
+                  ? 'bg-purple-600 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-purple-50'
               }`}
             >
@@ -171,286 +137,175 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({
         </div>
       </div>
 
-      {/* Main Content Area based on Tab */}
-      <div className="flex-1 min-h-0 bg-white rounded-[32px] sm:rounded-[36px] p-4 border-2 border-purple-100 border-b-[8px] border-b-rose-400 shadow-xl flex gap-4 items-center justify-between">
+      {/* Main Content Card */}
+      <div className="flex-1 min-h-0 bg-white rounded-2xl p-2 sm:p-2.5 border border-purple-100 shadow-md flex overflow-hidden">
         {/* TAB 1: PHONICS ABC */}
         {activeTab === 'phonics' && (
-          <div className="w-full h-full flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* Left Carousel / Grid of Letters */}
-            <div className="flex-1 h-full overflow-y-auto kids-scrollbar pr-2 grid grid-cols-4 sm:grid-cols-7 gap-2">
+          <div className="w-full h-full flex flex-row gap-2 items-center justify-between">
+            <div className="flex-1 h-full overflow-y-auto no-scrollbar grid grid-cols-6 sm:grid-cols-7 gap-1.5 p-1">
               {PHONICS_LIST.map((card) => {
                 const isSelected = selectedPhonics.letter === card.letter;
                 return (
-                  <motion.button
+                  <button
                     key={card.letter}
-                    id={`phonics-letter-${card.letter}`}
                     onClick={() => handlePlayPhonics(card)}
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    className={`aspect-square rounded-2xl p-2 flex flex-col items-center justify-center border-2 transition-all cursor-pointer ${
+                    className={`aspect-square rounded-xl p-1 flex flex-col items-center justify-center border transition-all ${
                       isSelected
-                        ? 'bg-purple-600 text-white border-white scale-105 shadow-lg'
+                        ? 'bg-purple-600 text-white border-white shadow scale-105'
                         : 'bg-slate-50 hover:bg-purple-50 text-slate-800 border-purple-100'
                     }`}
                   >
-                    <span className="text-xl sm:text-2xl font-black font-['Fredoka'] leading-none">
-                      {card.letter}
-                    </span>
-                    <span className="text-sm mt-1">{card.icon}</span>
-                  </motion.button>
+                    <span className="text-sm sm:text-base font-black font-['Fredoka'] leading-none">{card.letter}</span>
+                    <span className="text-[10px] leading-none mt-0.5">{card.icon}</span>
+                  </button>
                 );
               })}
             </div>
 
-            {/* Right Large Phonics Card & Sound Player */}
-            <motion.div
-              key={selectedPhonics.letter}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-full md:w-80 h-full bg-rose-50 rounded-[28px] p-6 shadow-md border-2 border-rose-200 flex flex-col items-center justify-between text-center shrink-0"
-            >
-              <span className="bg-rose-500 text-white text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">
-                Letter Sound: /{selectedPhonics.phonicsSound}/
+            <div className="w-48 sm:w-56 h-full bg-rose-50 rounded-2xl p-2 border border-rose-200 flex flex-col items-center justify-between text-center shrink-0">
+              <span className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                Sound: /{selectedPhonics.phonicsSound}/
               </span>
-
               <div className="my-auto">
-                <span className="text-6xl sm:text-7xl font-black text-purple-900 font-['Fredoka'] block drop-shadow-sm">
+                <span className="text-4xl sm:text-5xl font-black text-purple-900 font-['Fredoka'] block leading-none">
                   {selectedPhonics.letter}
                 </span>
-                <span className="text-5xl my-2 block animate-bounce-gentle">
-                  {selectedPhonics.icon}
-                </span>
-                <span className="text-2xl font-black text-slate-800 font-['Fredoka'] block">
+                <span className="text-3xl my-1 block">{selectedPhonics.icon}</span>
+                <span className="text-sm sm:text-base font-black text-slate-800 font-['Fredoka'] block">
                   {selectedPhonics.word}
                 </span>
               </div>
-
-              <motion.button
-                id="listen-phonics-sound-btn"
+              <button
                 onClick={() => handlePlayPhonics(selectedPhonics)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-full py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black shadow-md flex items-center justify-center gap-2 cursor-pointer border-2 border-white"
+                className="w-full py-1 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs shadow-sm flex items-center justify-center gap-1 border border-white"
               >
-                <Volume2 className="w-5 h-5" />
+                <Volume2 className="w-3.5 h-3.5" />
                 <span>Hear Sound</span>
-              </motion.button>
-            </motion.div>
+              </button>
+            </div>
           </div>
         )}
 
-        {/* TAB 2: MATH & COUNTING */}
+        {/* TAB 2: MATH */}
         {activeTab === 'math' && (
-          <div className="w-full h-full flex flex-col justify-between items-center text-center">
-            <div className="flex items-center justify-between w-full">
-              <span className="text-xs uppercase font-bold text-purple-900 tracking-wider">
-                Tap each item to count!
-              </span>
+          <div className="w-full h-full flex flex-col justify-between items-center text-center p-1">
+            <div className="flex items-center justify-between w-full shrink-0">
+              <span className="text-[10px] font-bold text-purple-900 uppercase">Tap items to count</span>
               <button
-                id="next-counting-level-btn"
                 onClick={handleNextMathLevel}
-                className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center gap-1 border border-purple-200 cursor-pointer"
+                className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-900 font-bold text-[10px] flex items-center gap-1 border border-purple-200"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Next Number</span>
+                <RefreshCw className="w-3 h-3" />
+                <span>Next</span>
               </button>
             </div>
-
-            {/* Large Target Number Box */}
-            <div className="bg-amber-50 px-6 py-2 rounded-2xl border-2 border-amber-200 inline-flex items-center gap-3 my-1">
-              <span className="text-4xl font-black text-amber-500 font-['Fredoka']">
-                {currentCountLevel.number}
-              </span>
-              <div className="text-left">
-                <span className="text-xl font-black text-slate-800 font-['Fredoka'] block">
-                  {currentCountLevel.word}
-                </span>
-                <span className="text-xs text-slate-500 font-medium">
-                  {currentCountLevel.itemName}
-                </span>
-              </div>
+            <div className="bg-amber-50 px-3 py-1 rounded-xl border border-amber-200 inline-flex items-center gap-2 my-0.5 shrink-0">
+              <span className="text-2xl font-black text-amber-500 font-['Fredoka']">{currentCountLevel.number}</span>
+              <span className="text-sm font-black text-slate-800 font-['Fredoka']">{currentCountLevel.word} ({currentCountLevel.itemName})</span>
             </div>
-
-            {/* Interactive Items to Tap and Count */}
-            <div className="flex-1 w-full max-w-2xl flex flex-wrap items-center justify-center gap-4 sm:gap-6 p-4">
+            <div className="flex-1 w-full flex flex-wrap items-center justify-center gap-2 p-1 overflow-y-auto no-scrollbar">
               {Array.from({ length: currentCountLevel.number }).map((_, idx) => {
                 const isPopped = poppedItems.includes(idx);
                 return (
-                  <motion.button
+                  <button
                     key={idx}
-                    id={`count-item-${idx}`}
                     onClick={() => handleTapCountItem(idx)}
-                    whileHover={!isPopped ? { scale: 1.15 } : {}}
-                    whileTap={!isPopped ? { scale: 0.85 } : {}}
-                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-3xl flex flex-col items-center justify-center text-3xl sm:text-4xl border-3 transition-all cursor-pointer relative shadow-lg ${
-                      isPopped
-                        ? 'bg-emerald-400 border-white scale-105 shadow-inner'
-                        : 'bg-purple-50 hover:bg-purple-100 border-purple-200'
+                    className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center text-2xl border-2 transition-all ${
+                      isPopped ? 'bg-emerald-400 border-white scale-105 shadow-inner' : 'bg-purple-50 hover:bg-purple-100 border-purple-200'
                     }`}
                   >
                     {currentCountLevel.itemEmoji}
-                    {isPopped && (
-                      <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-black flex items-center justify-center border border-white shadow">
-                        ✓
-                      </span>
-                    )}
-                  </motion.button>
+                  </button>
                 );
               })}
             </div>
-
-            {/* Progress Count Bar */}
-            <div className="text-sm font-bold text-slate-700">
-              Counted: <span className="text-purple-600 text-lg font-black">{poppedItems.length}</span> of {currentCountLevel.number}
+            <div className="text-xs font-bold text-slate-700 shrink-0">
+              Counted: <span className="text-purple-600 font-black">{poppedItems.length}</span> of {currentCountLevel.number}
             </div>
           </div>
         )}
 
-        {/* TAB 3: SHAPES & COLORS */}
+        {/* TAB 3: SHAPES */}
         {activeTab === 'shapes' && (
-          <div className="w-full h-full flex flex-col md:flex-row gap-6 items-center justify-between">
-            {/* Current Shape to Sort */}
+          <div className="w-full h-full flex flex-row gap-3 items-center justify-between p-1">
             <div className="flex-1 flex flex-col items-center justify-center text-center">
               {currentShape ? (
-                <motion.div
-                  key={currentShape.id}
-                  initial={{ scale: 0.5, rotate: -20 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  className="bg-cyan-50 p-6 rounded-[28px] border-2 border-cyan-200 shadow-md flex flex-col items-center"
-                >
-                  <span className="text-xs uppercase font-black text-cyan-700 tracking-wider mb-2">
-                    Match This Shape & Color!
-                  </span>
-                  
-                  {/* Shape Drawing */}
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center my-2">
-                    {currentShape.shapeType === 'star' && <span className="text-7xl">⭐</span>}
-                    {currentShape.shapeType === 'heart' && <span className="text-7xl">💖</span>}
-                    {currentShape.shapeType === 'circle' && <div className="w-24 h-24 rounded-full bg-[#74B9FF] border-4 border-white shadow-md" />}
-                    {currentShape.shapeType === 'square' && <div className="w-24 h-24 rounded-2xl bg-[#2ED573] border-4 border-white shadow-md" />}
-                    {currentShape.shapeType === 'triangle' && (
-                      <div className="w-0 h-0 border-l-[45px] border-l-transparent border-r-[45px] border-r-transparent border-b-[80px] border-b-[#A29BFE]" />
-                    )}
-                    {currentShape.shapeType === 'diamond' && (
-                      <div className="w-20 h-20 bg-[#FFA502] rotate-45 border-4 border-white shadow-md" />
-                    )}
+                <div className="bg-cyan-50 p-3 rounded-2xl border border-cyan-200 flex flex-col items-center">
+                  <span className="text-[10px] uppercase font-black text-cyan-700 mb-1">Match Color!</span>
+                  <div className="w-16 h-16 flex items-center justify-center my-1">
+                    {currentShape.shapeType === 'star' && <span className="text-4xl">⭐</span>}
+                    {currentShape.shapeType === 'heart' && <span className="text-4xl">💖</span>}
+                    {currentShape.shapeType === 'circle' && <div className="w-12 h-12 rounded-full bg-[#74B9FF] border-2 border-white shadow" />}
+                    {currentShape.shapeType === 'square' && <div className="w-12 h-12 rounded-xl bg-[#2ED573] border-2 border-white shadow" />}
+                    {currentShape.shapeType === 'diamond' && <div className="w-10 h-10 bg-[#FFA502] rotate-45 border-2 border-white shadow" />}
                   </div>
-
-                  <h3 className="text-xl font-black text-slate-800 font-['Fredoka'] mt-1">
-                    {currentShape.name}
-                  </h3>
-                </motion.div>
+                  <h3 className="text-xs font-black text-slate-800 font-['Fredoka']">{currentShape.name}</h3>
+                </div>
               ) : (
-                <div className="bg-purple-50 p-6 rounded-3xl border border-purple-200 text-center">
-                  <Award className="w-16 h-16 text-amber-400 mx-auto mb-2" />
-                  <h3 className="text-2xl font-black text-purple-900 font-['Fredoka']">
-                    All Shapes Sorted!
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1">You earned 3 Gold Stars!</p>
-                  <button
-                    id="restart-shapes-btn"
-                    onClick={() => {
-                      setShapeQueue([...SHAPES_DATA]);
-                      setShapeScore(0);
-                    }}
-                    className="mt-3 px-4 py-2 bg-cyan-500 text-white font-black rounded-xl cursor-pointer"
-                  >
-                    Play Again
-                  </button>
+                <div className="text-center">
+                  <Award className="w-10 h-10 text-amber-400 mx-auto" />
+                  <h3 className="text-sm font-black text-purple-900 font-['Fredoka']">Completed!</h3>
+                  <button onClick={() => { setShapeQueue([...SHAPES_DATA]); setShapeScore(0); }} className="mt-1 px-3 py-1 bg-cyan-500 text-white font-black text-xs rounded-xl">Play Again</button>
                 </div>
               )}
             </div>
-
-            {/* Target Sorting Bins (Color Bins) */}
-            <div className="w-full md:w-80 grid grid-cols-2 gap-3">
+            <div className="w-48 sm:w-56 grid grid-cols-2 gap-1.5">
               {[
-                { name: 'Yellow', color: '#FDCB6E', bg: 'bg-[#FDCB6E]' },
-                { name: 'Red', color: '#FF7675', bg: 'bg-[#FF7675]' },
-                { name: 'Blue', color: '#74B9FF', bg: 'bg-[#74B9FF]' },
-                { name: 'Green', color: '#2ED573', bg: 'bg-[#2ED573]' },
-                { name: 'Purple', color: '#A29BFE', bg: 'bg-[#A29BFE]' },
-                { name: 'Orange', color: '#FFA502', bg: 'bg-[#FFA502]' },
+                { name: 'Yellow', bg: 'bg-[#FDCB6E]' },
+                { name: 'Red', bg: 'bg-[#FF7675]' },
+                { name: 'Blue', bg: 'bg-[#74B9FF]' },
+                { name: 'Green', bg: 'bg-[#2ED573]' },
+                { name: 'Purple', bg: 'bg-[#A29BFE]' },
+                { name: 'Orange', bg: 'bg-[#FFA502]' },
               ].map(bin => (
-                <motion.button
+                <button
                   key={bin.name}
-                  id={`sort-bin-${bin.name}`}
                   onClick={() => handleSortShape(bin.name)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`${bin.bg} text-slate-900 font-black p-3 rounded-2xl border-2 border-white shadow-md flex flex-col items-center justify-center cursor-pointer`}
+                  className={`${bin.bg} text-slate-900 font-black p-1.5 rounded-xl border border-white text-[10px] flex items-center justify-center gap-1`}
                 >
-                  <span className="text-xl">📥</span>
-                  <span className="text-xs font-black uppercase tracking-wider mt-1">
-                    {bin.name} Bin
-                  </span>
-                </motion.button>
+                  <span>📥</span> <span>{bin.name}</span>
+                </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* TAB 4: ANIMAL SOUNDBOARD */}
+        {/* TAB 4: ANIMALS */}
         {activeTab === 'animals' && (
-          <div className="w-full h-full flex flex-col md:flex-row gap-4 items-center justify-between">
-            {/* Animal Icons Grid */}
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto kids-scrollbar pr-2">
-              {ANIMAL_FACTS.map((an) => {
-                const isSelected = selectedAnimal.id === an.id;
-                return (
-                  <motion.button
-                    key={an.id}
-                    id={`animal-btn-${an.id}`}
-                    onClick={() => handleAnimalTap(an)}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className={`p-3 rounded-2xl flex items-center gap-3 border-2 transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-100 text-slate-900 border-amber-400 shadow-md scale-105'
-                        : 'bg-slate-50 hover:bg-purple-50 text-slate-800 border-purple-100'
-                    }`}
-                  >
-                    <span className="text-3xl">{an.icon}</span>
-                    <div className="text-left">
-                      <span className="text-xs font-black block font-['Fredoka']">
-                        {an.name}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-semibold block">
-                        {an.sound}
-                      </span>
-                    </div>
-                  </motion.button>
-                );
-              })}
+          <div className="w-full h-full flex flex-row gap-2 items-center justify-between">
+            <div className="flex-1 h-full grid grid-cols-2 sm:grid-cols-3 gap-1.5 overflow-y-auto no-scrollbar p-1">
+              {ANIMAL_FACTS.map((an) => (
+                <button
+                  key={an.id}
+                  onClick={() => handleAnimalTap(an)}
+                  className={`p-1.5 rounded-xl flex items-center gap-2 border transition-all ${
+                    selectedAnimal.id === an.id ? 'bg-amber-100 text-slate-900 border-amber-400' : 'bg-slate-50 border-purple-100 text-slate-800'
+                  }`}
+                >
+                  <span className="text-xl">{an.icon}</span>
+                  <div className="text-left leading-none">
+                    <span className="text-[10px] font-black font-['Fredoka'] block">{an.name}</span>
+                    <span className="text-[8px] text-slate-500">{an.sound}</span>
+                  </div>
+                </button>
+              ))}
             </div>
-
-            {/* Animal Detail Card */}
-            <div className="w-full md:w-80 h-full bg-amber-50 rounded-[28px] p-5 border-2 border-amber-200 shadow-md flex flex-col items-center justify-between text-center shrink-0">
-              <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-1 rounded-full uppercase">
-                Habitat: {selectedAnimal.habitat}
+            <div className="w-48 sm:w-56 h-full bg-amber-50 rounded-2xl p-2 border border-amber-200 flex flex-col items-center justify-between text-center shrink-0">
+              <span className="bg-amber-400 text-slate-900 text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
+                {selectedAnimal.habitat}
               </span>
-
-              <div className="my-auto">
-                <span className="text-6xl block my-2 animate-bounce-gentle">
-                  {selectedAnimal.icon}
-                </span>
-                <h3 className="text-xl font-black text-slate-800 font-['Fredoka']">
-                  {selectedAnimal.name}
-                </h3>
-                <p className="text-xs text-slate-600 mt-2 font-medium">
-                  {selectedAnimal.funFact}
-                </p>
+              <div className="my-auto leading-tight">
+                <span className="text-3xl block my-0.5">{selectedAnimal.icon}</span>
+                <h3 className="text-xs font-black text-slate-800 font-['Fredoka']">{selectedAnimal.name}</h3>
+                <p className="text-[9px] text-slate-600 line-clamp-2 mt-0.5">{selectedAnimal.funFact}</p>
               </div>
-
-              <motion.button
-                id="play-animal-voice-btn"
+              <button
                 onClick={() => handleAnimalTap(selectedAnimal)}
-                whileHover={{ scale: 1.04 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-full py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-sm shadow-md flex items-center justify-center gap-2 border-2 border-white cursor-pointer"
+                className="w-full py-1 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-[10px] flex items-center justify-center gap-1 border border-white"
               >
-                <Volume2 className="w-4 h-4" />
-                <span>Hear Sound: "{selectedAnimal.sound}"</span>
-              </motion.button>
+                <Volume2 className="w-3 h-3" />
+                <span>Hear Sound</span>
+              </button>
             </div>
           </div>
         )}

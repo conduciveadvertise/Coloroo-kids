@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { 
-  Gamepad2, 
-  ChevronLeft, 
-  Sparkles, 
-  RefreshCw, 
-  Award, 
-  Trophy, 
-  Check 
+import {
+  Gamepad2,
+  ChevronLeft,
+  RefreshCw
 } from 'lucide-react';
 import { sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
@@ -19,32 +15,12 @@ interface GamesScreenProps {
 
 type GameMode = 'memory' | 'balloons' | 'puzzle';
 
-interface MemoryCard {
-  id: number;
-  emoji: string;
-  name: string;
-  isFlipped: boolean;
-  isMatched: boolean;
-}
-
-interface Balloon {
-  id: number;
-  color: string;
-  emoji: string;
-  x: number;
-  speed: number;
-  popped: boolean;
-}
-
-export const GamesScreen: React.FC<GamesScreenProps> = ({
-  onBack,
-  onAddStars
-}) => {
+export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) => {
   const [activeGame, setActiveGame] = useState<GameMode>('memory');
 
-  // --- MEMORY MATCH STATE ---
+  // Memory
   const initialMemoryPairs = ['🦘', '🦁', '🐬', '🐼'];
-  const [cards, setCards] = useState<MemoryCard[]>([]);
+  const [cards, setCards] = useState<any[]>([]);
   const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
   const [matchedPairsCount, setMatchedPairsCount] = useState<number>(0);
 
@@ -52,44 +28,34 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
     const duplicated = [...initialMemoryPairs, ...initialMemoryPairs];
     const shuffled = duplicated
       .sort(() => Math.random() - 0.5)
-      .map((emoji, index) => ({
-        id: index,
-        emoji,
-        name: emoji,
-        isFlipped: false,
-        isMatched: false
-      }));
+      .map((emoji, index) => ({ id: index, emoji, isFlipped: false, isMatched: false }));
     setCards(shuffled);
     setFlippedIndices([]);
     setMatchedPairsCount(0);
   };
 
   useEffect(() => {
-    if (activeGame === 'memory') {
-      initMemoryGame();
-    }
+    if (activeGame === 'memory') initMemoryGame();
+    if (activeGame === 'balloons') initBalloons();
   }, [activeGame]);
 
   const handleCardClick = (index: number) => {
     if (flippedIndices.length === 2 || cards[index].isFlipped || cards[index].isMatched) return;
-
     sound.playCardFlip();
     const updated = [...cards];
     updated[index].isFlipped = true;
     setCards(updated);
-
     const newFlipped = [...flippedIndices, index];
     setFlippedIndices(newFlipped);
 
     if (newFlipped.length === 2) {
-      const [firstIdx, secondIdx] = newFlipped;
-      if (cards[firstIdx].emoji === cards[secondIdx].emoji) {
-        // Match!
+      const [f, s] = newFlipped;
+      if (cards[f].emoji === cards[s].emoji) {
         setTimeout(() => {
           sound.playCorrect();
           const matched = [...cards];
-          matched[firstIdx].isMatched = true;
-          matched[secondIdx].isMatched = true;
+          matched[f].isMatched = true;
+          matched[s].isMatched = true;
           setCards(matched);
           setFlippedIndices([]);
           setMatchedPairsCount(prev => {
@@ -98,48 +64,39 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
               sound.playFanfare();
               sound.speak("You won Memory Match! 3 Stars for you!");
               onAddStars(3);
-              try { confetti({ particleCount: 60, spread: 60 }); } catch {}
+              try { confetti({ particleCount: 50, spread: 50 }); } catch {}
             }
             return next;
           });
-        }, 500);
+        }, 400);
       } else {
-        // No match, flip back
         setTimeout(() => {
           const reset = [...cards];
-          reset[firstIdx].isFlipped = false;
-          reset[secondIdx].isFlipped = false;
+          reset[f].isFlipped = false;
+          reset[s].isFlipped = false;
           setCards(reset);
           setFlippedIndices([]);
-        }, 1000);
+        }, 800);
       }
     }
   };
 
-  // --- BALLOON POP STATE ---
-  const [balloons, setBalloons] = useState<Balloon[]>([]);
+  // Balloons
+  const [balloons, setBalloons] = useState<any[]>([]);
   const [balloonScore, setBalloonScore] = useState<number>(0);
 
   const initBalloons = () => {
     const balloonColors = ['#FF7675', '#74B9FF', '#FDCB6E', '#55EFC4', '#FD79A8', '#A29BFE'];
     const emojis = ['⭐', '🎈', '💖', '🌟', '🎨'];
-    const generated: Balloon[] = Array.from({ length: 8 }).map((_, i) => ({
+    const generated = Array.from({ length: 8 }).map((_, i) => ({
       id: i,
       color: balloonColors[i % balloonColors.length],
       emoji: emojis[i % emojis.length],
-      x: 10 + (i * 11),
-      speed: 3 + Math.random() * 2,
       popped: false
     }));
     setBalloons(generated);
     setBalloonScore(0);
   };
-
-  useEffect(() => {
-    if (activeGame === 'balloons') {
-      initBalloons();
-    }
-  }, [activeGame]);
 
   const handlePopBalloon = (id: number) => {
     sound.playPop();
@@ -148,15 +105,14 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
       const next = prev + 1;
       if (next === 8) {
         sound.playFanfare();
-        sound.speak("You popped all the balloons! Super job!");
         onAddStars(3);
-        try { confetti({ particleCount: 70, spread: 60 }); } catch {}
+        try { confetti({ particleCount: 50, spread: 50 }); } catch {}
       }
       return next;
     });
   };
 
-  // --- JIGSAW PUZZLE STATE ---
+  // Puzzle
   const [puzzlePlaced, setPuzzlePlaced] = useState<boolean[]>([false, false, false, false]);
 
   const handlePlacePuzzlePiece = (index: number) => {
@@ -164,54 +120,39 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
     const next = [...puzzlePlaced];
     next[index] = true;
     setPuzzlePlaced(next);
-
     if (next.every(Boolean)) {
       sound.playFanfare();
-      sound.speak("Puzzle complete! You built Coloroo's rainbow!");
       onAddStars(3);
-      try { confetti({ particleCount: 70, spread: 60 }); } catch {}
+      try { confetti({ particleCount: 50, spread: 50 }); } catch {}
     }
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col justify-between p-3 sm:p-4 select-none overflow-hidden">
-      {/* Top Bar with Games Switcher */}
-      <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
-        <div className="flex items-center gap-2">
+    <div className="w-full h-full flex flex-col justify-between p-1.5 select-none overflow-hidden">
+      {/* Top Nav */}
+      <div className="flex items-center justify-between gap-1.5 shrink-0 mb-1">
+        <div className="flex items-center gap-1.5">
           <button
-            id="games-back-btn"
-            onClick={() => {
-              sound.playPop();
-              onBack();
-            }}
-            className="p-2 rounded-2xl bg-white hover:bg-purple-50 active:scale-95 text-slate-700 cursor-pointer flex items-center gap-1 border-2 border-purple-100 shadow-sm"
+            onClick={() => { sound.playPop(); onBack(); }}
+            className="px-2 py-1 rounded-xl bg-white text-purple-900 border border-purple-100 flex items-center gap-0.5"
           >
-            <ChevronLeft className="w-5 h-5 text-purple-700" />
-            <span className="text-xs font-bold hidden sm:inline text-purple-900">Home</span>
+            <ChevronLeft className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-black">Back</span>
           </button>
-          <h1 className="text-lg sm:text-xl font-black text-purple-900 font-['Fredoka']">
-            Arcade Mini-Games 🎮
-          </h1>
+          <span className="text-xs sm:text-sm font-black text-purple-900 font-['Fredoka']">Arcade 🎮</span>
         </div>
 
-        {/* Game Mode Pills */}
-        <div className="flex items-center gap-1 sm:gap-2 bg-white p-1.5 rounded-2xl border-2 border-purple-100 shadow-sm">
+        <div className="flex items-center gap-1 bg-white p-0.5 rounded-xl border border-purple-100">
           {[
-            { id: 'memory' as GameMode, label: '🃏 Memory Match' },
-            { id: 'balloons' as GameMode, label: '🎈 Balloon Pop' },
-            { id: 'puzzle' as GameMode, label: '🧩 Jigsaw Puzzle' },
+            { id: 'memory' as GameMode, label: '🃏 Memory' },
+            { id: 'balloons' as GameMode, label: '🎈 Balloon' },
+            { id: 'puzzle' as GameMode, label: '🧩 Puzzle' },
           ].map(g => (
             <button
               key={g.id}
-              id={`game-pill-${g.id}`}
-              onClick={() => {
-                sound.playPop();
-                setActiveGame(g.id);
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeGame === g.id
-                  ? 'bg-amber-400 text-slate-900 font-black shadow-md scale-105 border border-white'
-                  : 'text-slate-600 hover:bg-purple-50'
+              onClick={() => { sound.playPop(); setActiveGame(g.id); }}
+              className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${
+                activeGame === g.id ? 'bg-amber-400 text-slate-900 shadow-sm' : 'text-slate-600'
               }`}
             >
               {g.label}
@@ -220,212 +161,99 @@ export const GamesScreen: React.FC<GamesScreenProps> = ({
         </div>
       </div>
 
-      {/* Main Game Stage */}
-      <div className="flex-1 min-h-0 bg-white rounded-[32px] sm:rounded-[36px] p-4 border-2 border-purple-100 border-b-[8px] border-b-amber-400 shadow-xl flex flex-col justify-between relative overflow-hidden">
-        {/* GAME 1: MEMORY MATCH */}
+      {/* Main Stage */}
+      <div className="flex-1 min-h-0 bg-white rounded-2xl p-2 border border-purple-100 shadow flex flex-col justify-between overflow-hidden">
         {activeGame === 'memory' && (
           <div className="h-full flex flex-col items-center justify-between">
-            <div className="flex items-center justify-between w-full">
-              <span className="text-xs font-black text-purple-900">
-                Pairs Matched: {matchedPairsCount} / {initialMemoryPairs.length}
-              </span>
-              <button
-                id="reset-memory-btn"
-                onClick={initMemoryGame}
-                className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center gap-1 cursor-pointer border border-purple-200"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Shuffle Cards</span>
+            <div className="flex items-center justify-between w-full shrink-0">
+              <span className="text-[10px] font-black text-purple-900">Matched: {matchedPairsCount}/4</span>
+              <button onClick={initMemoryGame} className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-900 text-[10px] font-bold border border-purple-200">
+                <RefreshCw className="w-3 h-3 inline mr-1" /> Shuffle
               </button>
             </div>
-
-            {/* 8 Card Grid */}
-            <div className="grid grid-cols-4 gap-3 sm:gap-4 max-w-xl w-full my-auto">
+            <div className="grid grid-cols-4 gap-2 max-w-sm w-full my-auto">
               {cards.map((card, idx) => (
-                <motion.button
+                <button
                   key={card.id}
-                  id={`memory-card-${idx}`}
                   onClick={() => handleCardClick(idx)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`aspect-square rounded-2xl sm:rounded-3xl border-3 flex items-center justify-center text-3xl sm:text-4xl transition-all cursor-pointer shadow-lg relative ${
+                  className={`aspect-square rounded-xl flex items-center justify-center text-2xl border transition-all ${
                     card.isMatched
-                      ? 'bg-emerald-400 border-white text-white opacity-90'
+                      ? 'bg-emerald-400 text-white'
                       : card.isFlipped
-                      ? 'bg-purple-50 border-purple-600 text-purple-900 shadow-xl'
-                      : 'bg-gradient-to-br from-purple-500 to-indigo-600 border-white text-transparent hover:brightness-105'
+                      ? 'bg-purple-50 border-purple-600 text-purple-900'
+                      : 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white'
                   }`}
                 >
-                  {card.isFlipped || card.isMatched ? (
-                    <span>{card.emoji}</span>
-                  ) : (
-                    <span className="text-xl text-amber-300 font-black font-['Fredoka']">
-                      ★
-                    </span>
-                  )}
-                </motion.button>
+                  {card.isFlipped || card.isMatched ? card.emoji : '★'}
+                </button>
               ))}
             </div>
-
-            <div className="text-xs text-slate-500 font-medium">
-              Tap cards to find the cute animal twins!
-            </div>
+            <div className="text-[9px] text-slate-400">Find the cute animal twins!</div>
           </div>
         )}
 
-        {/* GAME 2: BALLOON POP */}
         {activeGame === 'balloons' && (
-          <div className="h-full flex flex-col justify-between relative overflow-hidden">
-            <div className="flex items-center justify-between z-20">
-              <span className="text-xs font-black text-purple-900">
-                Popped: {balloonScore} / 8 Balloons
-              </span>
-              <button
-                id="reset-balloons-btn"
-                onClick={initBalloons}
-                className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center gap-1 cursor-pointer border border-purple-200"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>More Balloons!</span>
+          <div className="h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between w-full shrink-0">
+              <span className="text-[10px] font-black text-purple-900">Popped: {balloonScore}/8</span>
+              <button onClick={initBalloons} className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-900 text-[10px] font-bold border border-purple-200">
+                More 🎈
               </button>
             </div>
-
-            {/* Balloon Stage Area */}
-            <div className="flex-1 relative w-full h-full my-auto flex items-center justify-around">
+            <div className="flex-1 flex items-center justify-around my-auto">
               {balloons.map((b) => (
-                <div key={b.id} className="relative h-full flex items-center">
+                <div key={b.id}>
                   {!b.popped ? (
-                    <motion.button
-                      id={`balloon-${b.id}`}
+                    <button
                       onClick={() => handlePopBalloon(b.id)}
-                      animate={{
-                        y: [0, -25, 0],
-                        rotate: [-3, 3, -3]
-                      }}
-                      transition={{
-                        repeat: Infinity,
-                        duration: b.speed,
-                        ease: 'easeInOut'
-                      }}
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.8 }}
                       style={{ backgroundColor: b.color }}
-                      className="w-14 h-18 sm:w-16 sm:h-20 rounded-full flex flex-col items-center justify-center text-xl shadow-xl border-2 border-white cursor-pointer relative"
+                      className="w-10 h-14 rounded-full flex items-center justify-center text-lg border-2 border-white shadow cursor-pointer active:scale-90"
                     >
-                      <span>{b.emoji}</span>
-                      {/* Balloon String */}
-                      <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-purple-400" />
-                    </motion.button>
+                      {b.emoji}
+                    </button>
                   ) : (
-                    <motion.div
-                      initial={{ scale: 1.5, opacity: 1 }}
-                      animate={{ scale: 0, opacity: 0 }}
-                      className="text-2xl"
-                    >
-                      💥
-                    </motion.div>
+                    <div className="text-xl">💥</div>
                   )}
                 </div>
               ))}
             </div>
-
-            <div className="text-xs text-center text-slate-500 font-medium z-20">
-              Tap the floating balloons before they fly into the sky!
-            </div>
+            <div className="text-[9px] text-center text-slate-400">Pop the floating balloons!</div>
           </div>
         )}
 
-        {/* GAME 3: JIGSAW PUZZLE BUILDER */}
         {activeGame === 'puzzle' && (
-          <div className="h-full flex flex-col md:flex-row items-center justify-between gap-6">
-            {/* Target Puzzle Board */}
-            <div className="w-64 h-64 sm:w-72 sm:h-72 bg-amber-50 rounded-3xl p-3 border-4 border-amber-300 shadow-md grid grid-cols-2 gap-2 relative">
-              {/* Piece 1 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[0] ? (
-                  <div className="w-full h-full bg-[#FF7675] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    🌈
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 1</span>
-                )}
-              </div>
-
-              {/* Piece 2 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[1] ? (
-                  <div className="w-full h-full bg-[#FDCB6E] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    ☀️
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 2</span>
-                )}
-              </div>
-
-              {/* Piece 3 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[2] ? (
-                  <div className="w-full h-full bg-[#55EFC4] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    🦘
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 3</span>
-                )}
-              </div>
-
-              {/* Piece 4 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[3] ? (
-                  <div className="w-full h-full bg-[#6C5CE7] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    🎨
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 4</span>
-                )}
-              </div>
+          <div className="h-full flex flex-row items-center justify-around gap-2">
+            <div className="w-36 h-36 bg-amber-50 rounded-2xl p-1.5 border-2 border-amber-300 grid grid-cols-2 gap-1 shrink-0">
+              {['🌈', '☀️', '🦘', '🎨'].map((emoji, idx) => (
+                <div key={idx} className="rounded-xl border border-dashed border-amber-300 flex items-center justify-center bg-white">
+                  {puzzlePlaced[idx] ? <span className="text-2xl">{emoji}</span> : <span className="text-[9px] text-slate-300">P{idx + 1}</span>}
+                </div>
+              ))}
             </div>
-
-            {/* Available Pieces tray */}
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <span className="text-xs uppercase font-black text-purple-900 tracking-wider mb-2">
-                Tap each piece to snap it in place!
-              </span>
-
-              <div className="grid grid-cols-2 gap-3 max-w-xs w-full mb-3">
+            <div className="flex flex-col items-center justify-center">
+              <div className="grid grid-cols-2 gap-1.5 mb-1.5">
                 {[
-                  { idx: 0, label: 'Rainbow Sky', emoji: '🌈', color: '#FF7675' },
-                  { idx: 1, label: 'Happy Sun', emoji: '☀️', color: '#FDCB6E' },
-                  { idx: 2, label: 'Coloroo Mascot', emoji: '🦘', color: '#55EFC4' },
-                  { idx: 3, label: 'Magic Paint', emoji: '🎨', color: '#6C5CE7' },
+                  { idx: 0, label: 'Rainbow', emoji: '🌈' },
+                  { idx: 1, label: 'Sun', emoji: '☀️' },
+                  { idx: 2, label: 'Roo', emoji: '🦘' },
+                  { idx: 3, label: 'Paint', emoji: '🎨' },
                 ].map(p => (
-                  <motion.button
+                  <button
                     key={p.idx}
-                    id={`puzzle-piece-${p.idx}`}
                     disabled={puzzlePlaced[p.idx]}
                     onClick={() => handlePlacePuzzlePiece(p.idx)}
-                    whileHover={!puzzlePlaced[p.idx] ? { scale: 1.08 } : {}}
-                    whileTap={!puzzlePlaced[p.idx] ? { scale: 0.92 } : {}}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all cursor-pointer ${
-                      puzzlePlaced[p.idx]
-                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                        : 'bg-purple-50 text-slate-800 border-purple-200 shadow-md'
+                    className={`px-2 py-1.5 rounded-xl border flex items-center gap-1 ${
+                      puzzlePlaced[p.idx] ? 'bg-slate-100 opacity-40' : 'bg-purple-50 border-purple-200'
                     }`}
                   >
-                    <span className="text-3xl">{p.emoji}</span>
-                    <span className="text-[10px] font-black uppercase mt-1">
-                      {puzzlePlaced[p.idx] ? '✓ Snapped' : p.label}
-                    </span>
-                  </motion.button>
+                    <span className="text-xl">{p.emoji}</span>
+                    <span className="text-[9px] font-black">{p.label}</span>
+                  </button>
                 ))}
               </div>
-
               {puzzlePlaced.every(Boolean) && (
-                <button
-                  id="reset-puzzle-btn"
-                  onClick={() => setPuzzlePlaced([false, false, false, false])}
-                  className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-900 font-black rounded-xl cursor-pointer"
-                >
-                  Build Again!
+                <button onClick={() => setPuzzlePlaced([false, false, false, false])} className="px-2.5 py-0.5 bg-amber-400 text-slate-900 font-black text-[10px] rounded-lg">
+                  Rebuild!
                 </button>
               )}
             </div>
