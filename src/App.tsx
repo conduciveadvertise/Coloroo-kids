@@ -61,13 +61,6 @@ export default function App() {
       }
     } catch {}
 
-    try {
-      import('expo-screen-orientation').then((ScreenOrientation) => {
-        if (ScreenOrientation && typeof ScreenOrientation.lockAsync === 'function') {
-          ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
-        }
-      }).catch(() => {});
-    } catch {}
   }, []);
 
   // Sync storage on state change
