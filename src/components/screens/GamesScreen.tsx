@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { 
-  Gamepad2, 
-  ChevronLeft, 
-  Sparkles, 
-  RefreshCw, 
-  Award, 
-  Trophy, 
-  Check 
-} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ChevronLeft, RotateCcw, Sparkles } from 'lucide-react';
 import { sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
 
@@ -17,420 +9,256 @@ interface GamesScreenProps {
   onAddStars: (amount: number) => void;
 }
 
-type GameMode = 'memory' | 'balloons' | 'puzzle';
+type GameTab = 'memory' | 'balloon' | 'puzzle';
 
 interface MemoryCard {
   id: number;
+  pairId: number;
   emoji: string;
   name: string;
   isFlipped: boolean;
   isMatched: boolean;
 }
 
-interface Balloon {
-  id: number;
-  color: string;
-  emoji: string;
-  x: number;
-  speed: number;
-  popped: boolean;
-}
+const BASE_CARDS = [
+  { pairId: 1, emoji: '🦁', name: 'Lion' },
+  { pairId: 2, emoji: '🐬', name: 'Dolphin' },
+  { pairId: 3, emoji: '🦘', name: 'Kangaroo' },
+  { pairId: 4, emoji: '🐼', name: 'Panda' },
+];
 
-export const GamesScreen: React.FC<GamesScreenProps> = ({
-  onBack,
-  onAddStars
-}) => {
-  const [activeGame, setActiveGame] = useState<GameMode>('memory');
+export const GamesScreen: React.FC<GamesScreenProps> = ({ onBack, onAddStars }) => {
+  const [activeTab, setActiveTab] = useState<GameTab>('memory');
 
   // --- MEMORY MATCH STATE ---
-  const initialMemoryPairs = ['🦘', '🦁', '🐬', '🐼'];
   const [cards, setCards] = useState<MemoryCard[]>([]);
-  const [flippedIndices, setFlippedIndices] = useState<number[]>([]);
-  const [matchedPairsCount, setMatchedPairsCount] = useState<number>(0);
-
-  const initMemoryGame = () => {
-    const duplicated = [...initialMemoryPairs, ...initialMemoryPairs];
-    const shuffled = duplicated
-      .sort(() => Math.random() - 0.5)
-      .map((emoji, index) => ({
-        id: index,
-        emoji,
-        name: emoji,
-        isFlipped: false,
-        isMatched: false
-      }));
-    setCards(shuffled);
-    setFlippedIndices([]);
-    setMatchedPairsCount(0);
-  };
-
-  useEffect(() => {
-    if (activeGame === 'memory') {
-      initMemoryGame();
-    }
-  }, [activeGame]);
-
-  const handleCardClick = (index: number) => {
-    if (flippedIndices.length === 2 || cards[index].isFlipped || cards[index].isMatched) return;
-
-    sound.playCardFlip();
-    const updated = [...cards];
-    updated[index].isFlipped = true;
-    setCards(updated);
-
-    const newFlipped = [...flippedIndices, index];
-    setFlippedIndices(newFlipped);
-
-    if (newFlipped.length === 2) {
-      const [firstIdx, secondIdx] = newFlipped;
-      if (cards[firstIdx].emoji === cards[secondIdx].emoji) {
-        // Match!
-        setTimeout(() => {
-          sound.playCorrect();
-          const matched = [...cards];
-          matched[firstIdx].isMatched = true;
-          matched[secondIdx].isMatched = true;
-          setCards(matched);
-          setFlippedIndices([]);
-          setMatchedPairsCount(prev => {
-            const next = prev + 1;
-            if (next === initialMemoryPairs.length) {
-              sound.playFanfare();
-              sound.speak("You won Memory Match! 3 Stars for you!");
-              onAddStars(3);
-              try { confetti({ particleCount: 60, spread: 60 }); } catch {}
-            }
-            return next;
-          });
-        }, 500);
-      } else {
-        // No match, flip back
-        setTimeout(() => {
-          const reset = [...cards];
-          reset[firstIdx].isFlipped = false;
-          reset[secondIdx].isFlipped = false;
-          setCards(reset);
-          setFlippedIndices([]);
-        }, 1000);
-      }
-    }
-  };
+  const [flippedCards, setFlippedCards] = useState<number[]>([]);
+  const [matchedPairsCount, setMatchedPairsCount] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // --- BALLOON POP STATE ---
-  const [balloons, setBalloons] = useState<Balloon[]>([]);
-  const [balloonScore, setBalloonScore] = useState<number>(0);
+  const [balloonScore, setBalloonScore] = useState(0);
 
-  const initBalloons = () => {
-    const balloonColors = ['#FF7675', '#74B9FF', '#FDCB6E', '#55EFC4', '#FD79A8', '#A29BFE'];
-    const emojis = ['⭐', '🎈', '💖', '🌟', '🎨'];
-    const generated: Balloon[] = Array.from({ length: 8 }).map((_, i) => ({
-      id: i,
-      color: balloonColors[i % balloonColors.length],
-      emoji: emojis[i % emojis.length],
-      x: 10 + (i * 11),
-      speed: 3 + Math.random() * 2,
-      popped: false
-    }));
-    setBalloons(generated);
-    setBalloonScore(0);
+  const initMemoryGame = () => {
+    const deck: MemoryCard[] = [];
+    let idCounter = 1;
+    BASE_CARDS.forEach(item => {
+      deck.push({ id: idCounter++, pairId: item.pairId, emoji: item.emoji, name: item.name, isFlipped: false, isMatched: false });
+      deck.push({ id: idCounter++, pairId: item.pairId, emoji: item.emoji, name: item.name, isFlipped: false, isMatched: false });
+    });
+    // Shuffle deck
+    deck.sort(() => Math.random() - 0.5);
+    setCards(deck);
+    setFlippedCards([]);
+    setMatchedPairsCount(0);
+    setIsProcessing(false);
   };
 
   useEffect(() => {
-    if (activeGame === 'balloons') {
-      initBalloons();
-    }
-  }, [activeGame]);
+    initMemoryGame();
+  }, []);
 
-  const handlePopBalloon = (id: number) => {
-    sound.playPop();
-    setBalloons(prev => prev.map(b => b.id === id ? { ...b, popped: true } : b));
-    setBalloonScore(prev => {
-      const next = prev + 1;
-      if (next === 8) {
-        sound.playFanfare();
-        sound.speak("You popped all the balloons! Super job!");
-        onAddStars(3);
-        try { confetti({ particleCount: 70, spread: 60 }); } catch {}
+  const handleCardClick = (cardId: number) => {
+    if (isProcessing) return;
+
+    const clickedCard = cards.find(c => c.id === cardId);
+    if (!clickedCard || clickedCard.isFlipped || clickedCard.isMatched) return;
+
+    sound.playCardFlip();
+
+    const newCards = cards.map(c => c.id === cardId ? { ...c, isFlipped: true } : c);
+    setCards(newCards);
+
+    const newFlipped = [...flippedCards, cardId];
+    setFlippedCards(newFlipped);
+
+    if (newFlipped.length === 2) {
+      setIsProcessing(true);
+      const firstCard = newCards.find(c => c.id === newFlipped[0])!;
+      const secondCard = newCards.find(c => c.id === newFlipped[1])!;
+
+      if (firstCard.pairId === secondCard.pairId) {
+        // Matched!
+        setTimeout(() => {
+          sound.playCorrect();
+          sound.speak(`Matched ${firstCard.name}!`);
+          setCards(prev => prev.map(c => (c.id === firstCard.id || c.id === secondCard.id) ? { ...c, isMatched: true } : c));
+          setFlippedCards([]);
+          setIsProcessing(false);
+          const nextCount = matchedPairsCount + 1;
+          setMatchedPairsCount(nextCount);
+
+          if (nextCount === 4) {
+            sound.playFanfare();
+            sound.speak("Woohoo! You matched all pairs! You are a superstar!");
+            try {
+              confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
+            } catch {}
+            onAddStars(3);
+          }
+        }, 500);
+      } else {
+        // Not matched -> Flip back
+        setTimeout(() => {
+          setCards(prev => prev.map(c => (c.id === firstCard.id || c.id === secondCard.id) ? { ...c, isFlipped: false } : c));
+          setFlippedCards([]);
+          setIsProcessing(false);
+        }, 900);
       }
-      return next;
-    });
-  };
-
-  // --- JIGSAW PUZZLE STATE ---
-  const [puzzlePlaced, setPuzzlePlaced] = useState<boolean[]>([false, false, false, false]);
-
-  const handlePlacePuzzlePiece = (index: number) => {
-    sound.playPop();
-    const next = [...puzzlePlaced];
-    next[index] = true;
-    setPuzzlePlaced(next);
-
-    if (next.every(Boolean)) {
-      sound.playFanfare();
-      sound.speak("Puzzle complete! You built Coloroo's rainbow!");
-      onAddStars(3);
-      try { confetti({ particleCount: 70, spread: 60 }); } catch {}
     }
   };
 
   return (
-    <div className="flex-1 h-full flex flex-col justify-between p-3 sm:p-4 select-none overflow-hidden">
-      {/* Top Bar with Games Switcher */}
-      <div className="flex items-center justify-between gap-2 mb-2 shrink-0">
+    <div className="w-full h-full flex flex-col justify-between p-2 sm:p-3 select-none overflow-hidden bg-gradient-to-br from-[#F5F0FF] via-[#F1E8FF] to-[#EBE0FF]">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 shrink-0 mb-1">
         <div className="flex items-center gap-2">
           <button
-            id="games-back-btn"
             onClick={() => {
               sound.playPop();
               onBack();
             }}
-            className="p-2 rounded-2xl bg-white hover:bg-purple-50 active:scale-95 text-slate-700 cursor-pointer flex items-center gap-1 border-2 border-purple-100 shadow-sm"
+            className="p-1.5 sm:p-2 rounded-2xl bg-white hover:bg-purple-50 active:scale-95 text-purple-900 flex items-center gap-1 border-2 border-purple-100 shadow-sm cursor-pointer"
           >
-            <ChevronLeft className="w-5 h-5 text-purple-700" />
-            <span className="text-xs font-bold hidden sm:inline text-purple-900">Home</span>
+            <ChevronLeft className="w-4 h-4 text-purple-700" />
+            <span className="text-xs font-black">Home</span>
           </button>
-          <h1 className="text-lg sm:text-xl font-black text-purple-900 font-['Fredoka']">
+          <h1 className="text-base sm:text-lg font-black text-purple-950 font-['Fredoka']">
             Arcade Mini-Games 🎮
           </h1>
         </div>
 
-        {/* Game Mode Pills */}
-        <div className="flex items-center gap-1 sm:gap-2 bg-white p-1.5 rounded-2xl border-2 border-purple-100 shadow-sm">
+        {/* Tabs */}
+        <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
           {[
-            { id: 'memory' as GameMode, label: '🃏 Memory Match' },
-            { id: 'balloons' as GameMode, label: '🎈 Balloon Pop' },
-            { id: 'puzzle' as GameMode, label: '🧩 Jigsaw Puzzle' },
-          ].map(g => (
+            { id: 'memory' as GameTab, label: '🃏 Memory Match' },
+            { id: 'balloon' as GameTab, label: '🎈 Balloon Pop' },
+            { id: 'puzzle' as GameTab, label: '🧩 Jigsaw Puzzle' }
+          ].map(t => (
             <button
-              key={g.id}
-              id={`game-pill-${g.id}`}
+              key={t.id}
               onClick={() => {
                 sound.playPop();
-                setActiveGame(g.id);
+                setActiveTab(t.id);
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeGame === g.id
-                  ? 'bg-amber-400 text-slate-900 font-black shadow-md scale-105 border border-white'
+              className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === t.id
+                  ? 'bg-amber-400 text-slate-900 shadow-md font-extrabold'
                   : 'text-slate-600 hover:bg-purple-50'
               }`}
             >
-              {g.label}
+              {t.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Main Game Stage */}
-      <div className="flex-1 min-h-0 bg-white rounded-[32px] sm:rounded-[36px] p-4 border-2 border-purple-100 border-b-[8px] border-b-amber-400 shadow-xl flex flex-col justify-between relative overflow-hidden">
-        {/* GAME 1: MEMORY MATCH */}
-        {activeGame === 'memory' && (
-          <div className="h-full flex flex-col items-center justify-between">
-            <div className="flex items-center justify-between w-full">
+      {/* Game Content Box */}
+      <div className="flex-1 bg-white rounded-[28px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between min-h-0 relative overflow-hidden">
+        
+        {/* ================= TAB 1: MEMORY MATCH ================= */}
+        {activeTab === 'memory' && (
+          <div className="w-full h-full flex flex-col justify-between">
+            <div className="flex items-center justify-between shrink-0 mb-1 px-1">
               <span className="text-xs font-black text-purple-900">
-                Pairs Matched: {matchedPairsCount} / {initialMemoryPairs.length}
+                Pairs Matched: <span className="text-purple-600">{matchedPairsCount} / 4</span>
               </span>
               <button
-                id="reset-memory-btn"
-                onClick={initMemoryGame}
-                className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center gap-1 cursor-pointer border border-purple-200"
+                onClick={() => {
+                  sound.playPop();
+                  initMemoryGame();
+                }}
+                className="px-3 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs font-black flex items-center gap-1 cursor-pointer shadow-sm border border-purple-200"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Shuffle Cards</span>
+                <RotateCcw className="w-3.5 h-3.5" /> Shuffle Cards
               </button>
             </div>
 
-            {/* 8 Card Grid */}
-            <div className="grid grid-cols-4 gap-3 sm:gap-4 max-w-xl w-full my-auto">
-              {cards.map((card, idx) => (
+            {/* 2x4 Card Grid */}
+            <div className="flex-1 grid grid-cols-4 gap-2.5 sm:gap-3 p-1 items-stretch">
+              {cards.map(c => (
                 <motion.button
-                  key={card.id}
-                  id={`memory-card-${idx}`}
-                  onClick={() => handleCardClick(idx)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`aspect-square rounded-2xl sm:rounded-3xl border-3 flex items-center justify-center text-3xl sm:text-4xl transition-all cursor-pointer shadow-lg relative ${
-                    card.isMatched
-                      ? 'bg-emerald-400 border-white text-white opacity-90'
-                      : card.isFlipped
-                      ? 'bg-purple-50 border-purple-600 text-purple-900 shadow-xl'
-                      : 'bg-gradient-to-br from-purple-500 to-indigo-600 border-white text-transparent hover:brightness-105'
+                  key={c.id}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => handleCardClick(c.id)}
+                  className={`rounded-2xl border-2 flex items-center justify-center cursor-pointer transition-all shadow-md ${
+                    c.isMatched
+                      ? 'bg-emerald-100 border-emerald-400 shadow-lg ring-2 ring-emerald-300'
+                      : c.isFlipped
+                      ? 'bg-amber-100 border-amber-400 scale-105'
+                      : 'bg-gradient-to-br from-indigo-500 via-purple-600 to-purple-700 border-white hover:brightness-105'
                   }`}
                 >
-                  {card.isFlipped || card.isMatched ? (
-                    <span>{card.emoji}</span>
+                  {c.isFlipped || c.isMatched ? (
+                    <span className="text-4xl sm:text-5xl drop-shadow-md animate-bounce-gentle">{c.emoji}</span>
                   ) : (
-                    <span className="text-xl text-amber-300 font-black font-['Fredoka']">
-                      ★
-                    </span>
+                    <span className="text-2xl text-amber-300 drop-shadow">★</span>
                   )}
                 </motion.button>
               ))}
             </div>
-
-            <div className="text-xs text-slate-500 font-medium">
-              Tap cards to find the cute animal twins!
-            </div>
           </div>
         )}
 
-        {/* GAME 2: BALLOON POP */}
-        {activeGame === 'balloons' && (
-          <div className="h-full flex flex-col justify-between relative overflow-hidden">
-            <div className="flex items-center justify-between z-20">
+        {/* ================= TAB 2: BALLOON POP ================= */}
+        {activeTab === 'balloon' && (
+          <div className="w-full h-full flex flex-col justify-between items-center py-2">
+            <div className="flex items-center justify-between w-full px-2">
               <span className="text-xs font-black text-purple-900">
-                Popped: {balloonScore} / 8 Balloons
+                Popped: <span className="text-rose-500 font-extrabold">{balloonScore}</span> Balloons
               </span>
               <button
-                id="reset-balloons-btn"
-                onClick={initBalloons}
-                className="px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center gap-1 cursor-pointer border border-purple-200"
+                onClick={() => setBalloonScore(0)}
+                className="px-3 py-1 rounded-xl bg-purple-100 text-purple-900 text-xs font-black flex items-center gap-1 cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>More Balloons!</span>
+                <RotateCcw className="w-3.5 h-3.5" /> Reset
               </button>
             </div>
 
-            {/* Balloon Stage Area */}
-            <div className="flex-1 relative w-full h-full my-auto flex items-center justify-around">
-              {balloons.map((b) => (
-                <div key={b.id} className="relative h-full flex items-center">
-                  {!b.popped ? (
-                    <motion.button
-                      id={`balloon-${b.id}`}
-                      onClick={() => handlePopBalloon(b.id)}
-                      animate={{
-                        y: [0, -25, 0],
-                        rotate: [-3, 3, -3]
-                      }}
-                      transition={{
-                        repeat: Infinity,
-                        duration: b.speed,
-                        ease: 'easeInOut'
-                      }}
-                      whileHover={{ scale: 1.15 }}
-                      whileTap={{ scale: 0.8 }}
-                      style={{ backgroundColor: b.color }}
-                      className="w-14 h-18 sm:w-16 sm:h-20 rounded-full flex flex-col items-center justify-center text-xl shadow-xl border-2 border-white cursor-pointer relative"
-                    >
-                      <span>{b.emoji}</span>
-                      {/* Balloon String */}
-                      <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-0.5 h-4 bg-purple-400" />
-                    </motion.button>
-                  ) : (
-                    <motion.div
-                      initial={{ scale: 1.5, opacity: 1 }}
-                      animate={{ scale: 0, opacity: 0 }}
-                      className="text-2xl"
-                    >
-                      💥
-                    </motion.div>
-                  )}
-                </div>
+            <div className="flex-1 flex items-center justify-center gap-4 flex-wrap my-2">
+              {['🎈', '🎈', '🎈', '🎈', '🎈', '🎈'].map((b, i) => (
+                <motion.button
+                  key={i + balloonScore}
+                  whileHover={{ scale: 1.15 }}
+                  whileTap={{ scale: 0.8 }}
+                  onClick={() => {
+                    sound.playPop();
+                    sound.speak("Pop!");
+                    setBalloonScore(s => s + 1);
+                    onAddStars(1);
+                  }}
+                  className="text-6xl sm:text-7xl cursor-pointer hover:drop-shadow-lg transition-transform"
+                >
+                  {b}
+                </motion.button>
               ))}
             </div>
-
-            <div className="text-xs text-center text-slate-500 font-medium z-20">
-              Tap the floating balloons before they fly into the sky!
-            </div>
+            <span className="text-[10px] font-bold text-slate-400">Tap balloons to pop them and earn stars!</span>
           </div>
         )}
 
-        {/* GAME 3: JIGSAW PUZZLE BUILDER */}
-        {activeGame === 'puzzle' && (
-          <div className="h-full flex flex-col md:flex-row items-center justify-between gap-6">
-            {/* Target Puzzle Board */}
-            <div className="w-64 h-64 sm:w-72 sm:h-72 bg-amber-50 rounded-3xl p-3 border-4 border-amber-300 shadow-md grid grid-cols-2 gap-2 relative">
-              {/* Piece 1 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[0] ? (
-                  <div className="w-full h-full bg-[#FF7675] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    🌈
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 1</span>
-                )}
-              </div>
-
-              {/* Piece 2 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[1] ? (
-                  <div className="w-full h-full bg-[#FDCB6E] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    ☀️
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 2</span>
-                )}
-              </div>
-
-              {/* Piece 3 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[2] ? (
-                  <div className="w-full h-full bg-[#55EFC4] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    🦘
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 3</span>
-                )}
-              </div>
-
-              {/* Piece 4 */}
-              <div className="rounded-2xl border-2 border-dashed border-amber-200 flex items-center justify-center overflow-hidden bg-white">
-                {puzzlePlaced[3] ? (
-                  <div className="w-full h-full bg-[#6C5CE7] flex items-center justify-center text-4xl shadow-inner font-black text-white">
-                    🎨
-                  </div>
-                ) : (
-                  <span className="text-xs font-bold text-slate-400">Piece 4</span>
-                )}
-              </div>
-            </div>
-
-            {/* Available Pieces tray */}
-            <div className="flex-1 flex flex-col items-center justify-center text-center">
-              <span className="text-xs uppercase font-black text-purple-900 tracking-wider mb-2">
-                Tap each piece to snap it in place!
-              </span>
-
-              <div className="grid grid-cols-2 gap-3 max-w-xs w-full mb-3">
-                {[
-                  { idx: 0, label: 'Rainbow Sky', emoji: '🌈', color: '#FF7675' },
-                  { idx: 1, label: 'Happy Sun', emoji: '☀️', color: '#FDCB6E' },
-                  { idx: 2, label: 'Coloroo Mascot', emoji: '🦘', color: '#55EFC4' },
-                  { idx: 3, label: 'Magic Paint', emoji: '🎨', color: '#6C5CE7' },
-                ].map(p => (
-                  <motion.button
-                    key={p.idx}
-                    id={`puzzle-piece-${p.idx}`}
-                    disabled={puzzlePlaced[p.idx]}
-                    onClick={() => handlePlacePuzzlePiece(p.idx)}
-                    whileHover={!puzzlePlaced[p.idx] ? { scale: 1.08 } : {}}
-                    whileTap={!puzzlePlaced[p.idx] ? { scale: 0.92 } : {}}
-                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all cursor-pointer ${
-                      puzzlePlaced[p.idx]
-                        ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                        : 'bg-purple-50 text-slate-800 border-purple-200 shadow-md'
-                    }`}
-                  >
-                    <span className="text-3xl">{p.emoji}</span>
-                    <span className="text-[10px] font-black uppercase mt-1">
-                      {puzzlePlaced[p.idx] ? '✓ Snapped' : p.label}
-                    </span>
-                  </motion.button>
-                ))}
-              </div>
-
-              {puzzlePlaced.every(Boolean) && (
-                <button
-                  id="reset-puzzle-btn"
-                  onClick={() => setPuzzlePlaced([false, false, false, false])}
-                  className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-900 font-black rounded-xl cursor-pointer"
-                >
-                  Build Again!
-                </button>
-              )}
-            </div>
+        {/* ================= TAB 3: JIGSAW PUZZLE ================= */}
+        {activeTab === 'puzzle' && (
+          <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
+            <span className="text-6xl mb-2">🧩</span>
+            <h2 className="text-lg font-black text-purple-950 font-['Fredoka']">Animal Jigsaw Explorer</h2>
+            <p className="text-xs font-bold text-slate-500 max-w-sm mt-1">Tap shuffle in memory match to practice mental recognition!</p>
+            <button
+              onClick={() => {
+                sound.playFanfare();
+                sound.speak("You solved the mystery puzzle!");
+                try {
+                  confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
+                } catch {}
+              }}
+              className="mt-4 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-black text-xs rounded-2xl shadow-md cursor-pointer active:scale-95"
+            >
+              Solve Puzzle 🌟
+            </button>
           </div>
         )}
+
       </div>
     </div>
   );

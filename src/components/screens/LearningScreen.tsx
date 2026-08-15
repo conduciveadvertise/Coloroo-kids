@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Volume2, RotateCcw, Star, Check } from 'lucide-react';
+import { ChevronLeft, Volume2, RotateCcw } from 'lucide-react';
 import { sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
 
@@ -9,7 +9,7 @@ interface LearningScreenProps {
   onAddStars: (amount: number) => void;
 }
 
-type TabType = 'abc' | 'math' | 'shapes' | 'animals';
+type TabType = 'abc' | 'math' | 'numbers' | 'shapes' | 'animals';
 
 const PHONICS_DATA = [
   { letter: 'A', word: 'Apple', icon: '🍎', soundTxt: 'AH', sentence: 'A is for Apple! Ah, ah, Apple!' },
@@ -53,6 +53,27 @@ const MATH_LEVELS = [
   { target: 10, name: 'Ten (Rockets)', emoji: '🚀' },
 ];
 
+const numWordsMap: Record<number, string> = {
+  1: 'One', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five',
+  6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten',
+  11: 'Eleven', 12: 'Twelve', 13: 'Thirteen', 14: 'Fourteen', 15: 'Fifteen',
+  16: 'Sixteen', 17: 'Seventeen', 18: 'Eighteen', 19: 'Nineteen', 20: 'Twenty',
+  30: 'Thirty', 40: 'Forty', 50: 'Fifty'
+};
+
+const getNumName = (n: number): string => {
+  if (numWordsMap[n]) return numWordsMap[n];
+  const t = Math.floor(n / 10) * 10;
+  const o = n % 10;
+  return `${numWordsMap[t]} ${numWordsMap[o]}`;
+};
+
+const NUMBERS_1_TO_50 = Array.from({ length: 50 }, (_, i) => {
+  const num = i + 1;
+  const name = getNumName(num);
+  return { num, name };
+});
+
 const SHAPE_MATCH_DATA = [
   { id: 'star', prompt: 'MATCH COLOR!', name: 'Yellow Star', icon: '⭐', correctColor: 'Yellow' },
   { id: 'heart', prompt: 'MATCH COLOR!', name: 'Red Heart', icon: '❤️', correctColor: 'Red' },
@@ -72,12 +93,12 @@ const COLOR_OPTIONS = [
 ];
 
 const ANIMALS_DATA = [
-  { name: 'Coloroo Kangaroo', icon: '🦘', category: 'OUTBACK', fact: 'Boing! Boing!', soundText: 'Boing! Boing! Kangaroo hops high!' },
-  { name: 'Playful Dolphin', icon: '🐬', category: 'OCEAN', fact: 'Click-click! Squeak!', soundText: 'Click click! Dolphins love jumping!' },
-  { name: 'Gentle Lion', icon: '🦁', category: 'SAVANNA', fact: 'Rrrr-Oar!', soundText: 'Roaaar! King of the jungle!' },
-  { name: 'Cute Panda', icon: '🐼', category: 'BAMBOO FOREST', fact: 'Munch! Crunch!', soundText: 'Munch munch! Pandas love bamboo!' },
-  { name: 'Happy Cow', icon: '🐮', category: 'FARM', fact: 'Moooo-Mooo!', soundText: 'Moooo! Happy cow in the green meadow!' },
-  { name: 'Little Froggy', icon: '🐸', category: 'JUNGLE', fact: 'Ribbit! Croak! Frogs jump up to 20 times their body length!', soundText: 'Ribbit! Croak! Frogs love splashing!' },
+  { name: 'Coloroo Kangaroo', icon: '🦘', category: 'OUTBACK', fact: 'Boing! Boing! Kangaroo hops high in Australia!', soundText: 'Boing Boing! Kangaroo hops high!' },
+  { name: 'Playful Dolphin', icon: '🐬', category: 'OCEAN', fact: 'Click-click! Squeak! Dolphins love jumping!', soundText: 'Click click! Playful dolphin in the sea!' },
+  { name: 'Gentle Lion', icon: '🦁', category: 'SAVANNA', fact: 'Rrrr-Oar! King of the wild savanna!', soundText: 'Roaaar! Gentle brave lion!' },
+  { name: 'Cute Panda', icon: '🐼', category: 'BAMBOO', fact: 'Munch! Crunch! Pandas love fresh bamboo!', soundText: 'Munch munch! Sweet little panda!' },
+  { name: 'Happy Cow', icon: '🐮', category: 'FARM', fact: 'Moooo-Mooo! Gives tasty milk in the farm!', soundText: 'Moooo! Happy cow in the green meadow!' },
+  { name: 'Little Froggy', icon: '🐸', category: 'JUNGLE', fact: 'Ribbit! Croak! Frogs jump up to 20 times their size!', soundText: 'Ribbit! Croak! Little green froggy!' },
 ];
 
 export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddStars }) => {
@@ -85,8 +106,9 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
   const [selectedPhonic, setSelectedPhonic] = useState(PHONICS_DATA[0]);
   const [mathIndex, setMathIndex] = useState(2);
   const [countedItems, setCountedItems] = useState<number[]>([]);
+  const [selectedNumber50, setSelectedNumber50] = useState(NUMBERS_1_TO_50[0]);
   const [shapeIndex, setShapeIndex] = useState(0);
-  const [selectedAnimal, setSelectedAnimal] = useState(ANIMALS_DATA[5]);
+  const [selectedAnimal, setSelectedAnimal] = useState(ANIMALS_DATA[0]);
   const [celebrationMsg, setCelebrationMsg] = useState<string | null>(null);
 
   const currentMath = MATH_LEVELS[mathIndex];
@@ -94,6 +116,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
 
   const handleLetterClick = (item: typeof PHONICS_DATA[0]) => {
     setSelectedPhonic(item);
+    sound.playPop();
     sound.speak(item.sentence);
   };
 
@@ -103,6 +126,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
     const newCounted = [...countedItems, idx];
     setCountedItems(newCounted);
 
+    sound.playPop();
     sound.speak(`${nextCount}`);
 
     if (nextCount === currentMath.target) {
@@ -112,6 +136,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
       } catch {}
       setCelebrationMsg(`Great job counting ${currentMath.name}! ⭐`);
       onAddStars(2);
+      sound.speak(`Awesome! You counted ${currentMath.target}! ${currentMath.name}!`);
     }
   };
 
@@ -120,6 +145,12 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
     setCountedItems([]);
     setCelebrationMsg(null);
     setMathIndex((prev) => (prev + 1) % MATH_LEVELS.length);
+  };
+
+  const handleNumber50Click = (n: typeof NUMBERS_1_TO_50[0]) => {
+    setSelectedNumber50(n);
+    sound.playPop();
+    sound.speak(`Number ${n.num}! ${n.name}`);
   };
 
   const handleColorChoice = (colorName: string) => {
@@ -137,7 +168,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
       }, 1500);
     } else {
       sound.playPop();
-      sound.speak(`Oops! Try again! Find ${currentShape.correctColor}!`);
+      sound.speak(`Try again! Find ${currentShape.correctColor}!`);
     }
   };
 
@@ -161,11 +192,12 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </h1>
         </div>
 
-        {/* 4 Tabs */}
+        {/* 5 Complete Tabs */}
         <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
           {[
             { id: 'abc' as TabType, label: 'abc ABC' },
             { id: 'math' as TabType, label: '🔢 Math' },
+            { id: 'numbers' as TabType, label: '📝 Numbers (1–50)' },
             { id: 'shapes' as TabType, label: '🔷 Shapes' },
             { id: 'animals' as TabType, label: '🐱 Animals' }
           ].map((t) => (
@@ -176,7 +208,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                 setActiveTab(t.id);
                 setCelebrationMsg(null);
               }}
-              className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === t.id
                   ? 'bg-purple-600 text-white shadow-md'
                   : 'text-slate-600 hover:bg-purple-50'
@@ -188,16 +220,16 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Interactive Stage */}
       <div className="flex-1 bg-white rounded-[28px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between min-h-0 relative overflow-hidden">
         
-        {/* ================= TAB 1: PHONICS ABC ================= */}
+        {/* TAB 1: PHONICS ABC */}
         {activeTab === 'abc' && (
           <div className="w-full h-full flex gap-3 min-h-0">
             <div className="w-48 sm:w-56 flex flex-col justify-between border-r border-purple-100 pr-2">
               <div className="shrink-0 mb-1">
                 <span className="text-[9px] font-black text-purple-900 uppercase block">
-                  TAP ANY LETTER TO HEAR ITS SOUND! 🎧
+                  TAP ANY LETTER (A–Z) 🎧
                 </span>
                 <span className="text-[9px] font-extrabold text-purple-600">26 Letters</span>
               </div>
@@ -237,7 +269,10 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                 </p>
               </div>
               <button
-                onClick={() => sound.speak(selectedPhonic.sentence)}
+                onClick={() => {
+                  sound.playPop();
+                  sound.speak(selectedPhonic.sentence);
+                }}
                 className="w-full max-w-xs py-2 rounded-2xl bg-[#FF2E63] text-white font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Volume2 className="w-4 h-4" /> <span>Hear Sound</span>
@@ -246,7 +281,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* ================= TAB 2: MATH COUNTING ================= */}
+        {/* TAB 2: MATH COUNTING */}
         {activeTab === 'math' && (
           <div className="w-full h-full flex flex-col justify-between items-center relative py-1">
             <div className="w-full flex items-center justify-between px-2">
@@ -293,7 +328,60 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* ================= TAB 3: SHAPES MATCH ================= */}
+        {/* TAB 3: NUMBERS 1 TO 50 */}
+        {activeTab === 'numbers' && (
+          <div className="w-full h-full flex gap-3 min-h-0">
+            <div className="flex-1 flex flex-col justify-between overflow-hidden border-r border-purple-100 pr-2">
+              <span className="text-[10px] font-black text-purple-900 uppercase block mb-1">
+                TAP NUMBERS (1–50) TO HEAR NAME & PRONUNCIATION! 📝
+              </span>
+              <div className="flex-1 grid grid-cols-5 gap-1.5 overflow-y-auto no-scrollbar py-0.5 items-center">
+                {NUMBERS_1_TO_50.map((item) => {
+                  const isSelected = selectedNumber50.num === item.num;
+                  return (
+                    <button
+                      key={item.num}
+                      onClick={() => handleNumber50Click(item)}
+                      className={`h-12 rounded-xl flex flex-col items-center justify-center p-0.5 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-500 text-white shadow-md ring-2 ring-emerald-300'
+                          : 'bg-emerald-50/70 hover:bg-emerald-100 text-emerald-950 border border-emerald-100'
+                      }`}
+                    >
+                      <span className="text-base font-black font-['Fredoka'] leading-none">{item.num}</span>
+                      <span className="text-[8px] font-black tracking-tight line-clamp-1 mt-0.5">{item.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="w-60 bg-[#F0FDF4] rounded-[24px] p-3 border-2 border-emerald-300 border-b-[5px] border-b-emerald-500 flex flex-col justify-between items-center text-center shrink-0">
+              <span className="bg-emerald-500 text-white text-[10px] font-black px-3 py-0.5 rounded-full uppercase">
+                NUMBER: {selectedNumber50.num}
+              </span>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <span className="text-6xl font-black text-emerald-600 font-['Fredoka'] leading-none">
+                  {selectedNumber50.num}
+                </span>
+                <h2 className="text-xl font-black text-slate-900 font-['Fredoka'] mt-1">
+                  {selectedNumber50.name}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  sound.playPop();
+                  sound.speak(`Number ${selectedNumber50.num}! ${selectedNumber50.name}`);
+                }}
+                className="w-full py-2 rounded-2xl bg-emerald-500 text-white font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Volume2 className="w-4 h-4" /> <span>Say Number</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: SHAPES MATCH */}
         {activeTab === 'shapes' && (
           <div className="w-full h-full flex items-center justify-around px-4">
             <div className="w-48 bg-[#F0FBFF] rounded-[24px] p-4 border-2 border-cyan-200 border-b-[5px] border-b-cyan-400 shadow-md text-center flex flex-col items-center justify-center">
@@ -319,7 +407,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* ================= TAB 4: ANIMALS ================= */}
+        {/* TAB 5: ANIMALS */}
         {activeTab === 'animals' && (
           <div className="w-full h-full flex gap-3 min-h-0">
             <div className="flex-1 grid grid-cols-3 gap-2 overflow-y-auto no-scrollbar items-center">
@@ -330,6 +418,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                     key={a.name}
                     onClick={() => {
                       setSelectedAnimal(a);
+                      sound.playPop();
                       sound.speak(a.soundText);
                     }}
                     className={`h-24 rounded-2xl p-2 flex flex-col justify-center items-start text-left border-2 transition-all cursor-pointer ${
@@ -340,7 +429,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                   >
                     <span className="text-3xl leading-none">{a.icon}</span>
                     <span className="text-xs font-black text-purple-950 font-['Fredoka'] mt-1 leading-tight">{a.name}</span>
-                    <span className="text-[9px] text-slate-500 font-bold leading-tight">{a.fact.slice(0, 15)}...</span>
+                    <span className="text-[9px] text-slate-500 font-bold leading-tight">{a.fact.slice(0, 16)}...</span>
                   </button>
                 );
               })}
@@ -358,7 +447,10 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                 </p>
               </div>
               <button
-                onClick={() => sound.speak(selectedAnimal.soundText)}
+                onClick={() => {
+                  sound.playPop();
+                  sound.speak(selectedAnimal.soundText);
+                }}
                 className="w-full py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Volume2 className="w-4 h-4" /> <span>Hear Sound</span>
