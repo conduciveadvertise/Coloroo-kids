@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ChildProfile, ParentSettings, SavedArtwork } from '../types';
 
 const STORAGE_KEYS = {
@@ -34,44 +33,42 @@ let cachedProfile: ChildProfile = DEFAULT_PROFILE;
 let cachedArtworks: SavedArtwork[] = [];
 let cachedParentSettings: ParentSettings = DEFAULT_PARENT_SETTINGS;
 
-// Initialize cache from AsyncStorage asynchronously on startup
-(async () => {
+// Load saved data from browser/Capacitor WebView storage.
+const loadStorage = () => {
+  if (typeof localStorage === 'undefined') return;
+
   try {
-    const rawProfile = await AsyncStorage.getItem(STORAGE_KEYS.PROFILE);
+    const rawProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
     if (rawProfile) cachedProfile = JSON.parse(rawProfile);
 
-    const rawArt = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_ART);
+    const rawArt = localStorage.getItem(STORAGE_KEYS.SAVED_ART);
     if (rawArt) cachedArtworks = JSON.parse(rawArt);
 
-    const rawSettings = await AsyncStorage.getItem(STORAGE_KEYS.PARENT_SETTINGS);
+    const rawSettings = localStorage.getItem(STORAGE_KEYS.PARENT_SETTINGS);
     if (rawSettings) cachedParentSettings = JSON.parse(rawSettings);
   } catch {
-    // Fallback if AsyncStorage is unavailable
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const rawP = localStorage.getItem(STORAGE_KEYS.PROFILE);
-        if (rawP) cachedProfile = JSON.parse(rawP);
-        const rawA = localStorage.getItem(STORAGE_KEYS.SAVED_ART);
-        if (rawA) cachedArtworks = JSON.parse(rawA);
-        const rawS = localStorage.getItem(STORAGE_KEYS.PARENT_SETTINGS);
-        if (rawS) cachedParentSettings = JSON.parse(rawS);
-      } catch {}
-    }
+    // Keep defaults if stored data is invalid.
   }
-})();
+};
+
+loadStorage();
 
 export const getStoredProfile = (): ChildProfile => {
   return cachedProfile;
 };
 
-export const saveStoredProfile = async (profile: ChildProfile): Promise<void> => {
+export const saveStoredProfile = async (
+  profile: ChildProfile
+): Promise<void> => {
   cachedProfile = profile;
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
-  } catch {
-    if (typeof localStorage !== 'undefined') {
-      try { localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile)); } catch {}
-    }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PROFILE,
+        JSON.stringify(profile)
+      );
+    } catch {}
   }
 };
 
@@ -79,14 +76,18 @@ export const getStoredArtworks = (): SavedArtwork[] => {
   return cachedArtworks;
 };
 
-export const saveStoredArtworks = async (artworks: SavedArtwork[]): Promise<void> => {
+export const saveStoredArtworks = async (
+  artworks: SavedArtwork[]
+): Promise<void> => {
   cachedArtworks = artworks;
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.SAVED_ART, JSON.stringify(artworks));
-  } catch {
-    if (typeof localStorage !== 'undefined') {
-      try { localStorage.setItem(STORAGE_KEYS.SAVED_ART, JSON.stringify(artworks)); } catch {}
-    }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.SAVED_ART,
+        JSON.stringify(artworks)
+      );
+    } catch {}
   }
 };
 
@@ -94,14 +95,17 @@ export const getStoredParentSettings = (): ParentSettings => {
   return cachedParentSettings;
 };
 
-export const saveStoredParentSettings = async (settings: ParentSettings): Promise<void> => {
+export const saveStoredParentSettings = async (
+  settings: ParentSettings
+): Promise<void> => {
   cachedParentSettings = settings;
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.PARENT_SETTINGS, JSON.stringify(settings));
-  } catch {
-    if (typeof localStorage !== 'undefined') {
-      try { localStorage.setItem(STORAGE_KEYS.PARENT_SETTINGS, JSON.stringify(settings)); } catch {}
-    }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.PARENT_SETTINGS,
+        JSON.stringify(settings)
+      );
+    } catch {}
   }
 };
-
