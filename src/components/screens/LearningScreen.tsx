@@ -114,12 +114,14 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
   const currentMath = MATH_LEVELS[mathIndex];
   const currentShape = SHAPE_MATCH_DATA[shapeIndex];
 
+  // Tab 1: ABC Click (Big letter & voice)
   const handleLetterClick = (item: typeof PHONICS_DATA[0]) => {
     setSelectedPhonic(item);
     sound.playPop();
     sound.speak(item.sentence);
   };
 
+  // Tab 2: Math Counting
   const handleTapMathItem = (idx: number) => {
     if (countedItems.includes(idx)) return;
     const nextCount = countedItems.length + 1;
@@ -136,7 +138,9 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
       } catch {}
       setCelebrationMsg(`Great job counting ${currentMath.name}! ⭐`);
       onAddStars(2);
-      sound.speak(`Awesome! You counted ${currentMath.target}! ${currentMath.name}!`);
+      setTimeout(() => {
+        sound.speak(`Awesome! You counted ${currentMath.target}! ${currentMath.name}!`);
+      }, 300);
     }
   };
 
@@ -147,12 +151,14 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
     setMathIndex((prev) => (prev + 1) % MATH_LEVELS.length);
   };
 
+  // Tab 3: Numbers 1-50 Click
   const handleNumber50Click = (n: typeof NUMBERS_1_TO_50[0]) => {
     setSelectedNumber50(n);
     sound.playPop();
     sound.speak(`Number ${n.num}! ${n.name}`);
   };
 
+  // Tab 4: Shapes
   const handleColorChoice = (colorName: string) => {
     if (colorName === currentShape.correctColor) {
       sound.playCorrect();
@@ -223,48 +229,58 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
       {/* Main Interactive Stage */}
       <div className="flex-1 bg-white rounded-[28px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between min-h-0 relative overflow-hidden">
         
-        {/* TAB 1: PHONICS ABC */}
+        {/* ================= TAB 1: PHONICS ABC (5-COLUMN SPACIOUS GRID LIKE NUMBERS) ================= */}
         {activeTab === 'abc' && (
           <div className="w-full h-full flex gap-3 min-h-0">
-            <div className="w-48 sm:w-56 flex flex-col justify-between border-r border-purple-100 pr-2">
-              <div className="shrink-0 mb-1">
-                <span className="text-[9px] font-black text-purple-900 uppercase block">
-                  TAP ANY LETTER (A–Z) 🎧
+            {/* Left 5-Column Spacious Letter Grid (Takes 60% Width) */}
+            <div className="flex-[1.4] flex flex-col justify-between overflow-hidden border-r border-purple-100 pr-2">
+              <div className="flex items-center justify-between shrink-0 mb-1 px-1">
+                <span className="text-[10px] font-black text-purple-900 uppercase tracking-wider">
+                  TAP ANY LETTER (A–Z) TO HEAR VOICE! 🎧
                 </span>
-                <span className="text-[9px] font-extrabold text-purple-600">26 Letters</span>
+                <span className="text-[10px] font-extrabold text-purple-600">26 Letters</span>
               </div>
-              <div className="flex-1 grid grid-cols-4 gap-1.5 overflow-y-auto no-scrollbar py-0.5 items-center content-start">
+              <div className="flex-1 grid grid-cols-5 gap-1.5 overflow-y-auto no-scrollbar py-0.5 items-center">
                 {PHONICS_DATA.map((item) => {
                   const isSelected = selectedPhonic.letter === item.letter;
                   return (
-                    <button
+                    <motion.button
                       key={item.letter}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => handleLetterClick(item)}
-                      className={`h-12 rounded-xl flex flex-col items-center justify-center p-0.5 transition-all cursor-pointer ${
+                      className={`h-14 sm:h-16 rounded-2xl flex flex-col items-center justify-center p-1 transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-300'
-                          : 'bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-100'
+                          ? 'bg-purple-600 text-white shadow-lg ring-3 ring-purple-300 scale-105 border-2 border-white'
+                          : 'bg-purple-50/80 hover:bg-purple-100 text-purple-950 border border-purple-100'
                       }`}
                     >
-                      <span className="text-sm font-black leading-none font-['Fredoka']">{item.letter}</span>
-                      <span className="text-xs mt-0.5 leading-none">{item.icon}</span>
-                    </button>
+                      <span className="text-xl sm:text-2xl font-black font-['Fredoka'] leading-none">
+                        {item.letter}
+                      </span>
+                      <span className="text-sm sm:text-base mt-0.5 leading-none">{item.icon}</span>
+                    </motion.button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="flex-1 bg-[#FFF5F5] rounded-[24px] p-3 border-2 border-rose-200 border-b-[5px] border-b-rose-400 flex flex-col justify-between items-center text-center relative">
-              <span className="bg-[#FF2E63] text-white text-[10px] font-black px-3 py-0.5 rounded-full uppercase shadow-sm">
+            {/* Right Showcase Card (Takes 40% Width) */}
+            <div className="w-64 sm:w-72 bg-[#FFF5F5] rounded-[28px] p-3.5 border-2 border-rose-200 border-b-[6px] border-b-rose-400 shadow-xl flex flex-col justify-between items-center text-center shrink-0">
+              <span className="bg-[#FF2E63] text-white text-[10px] sm:text-xs font-black px-3 py-0.5 rounded-full uppercase shadow-sm">
                 SOUND: /{selectedPhonic.soundTxt}/
               </span>
               <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-7xl font-black text-purple-950 font-['Fredoka'] leading-none">
+                <span className="text-7xl sm:text-8xl font-black text-purple-950 font-['Fredoka'] leading-none">
                   {selectedPhonic.letter}
                 </span>
-                <span className="text-6xl my-1 drop-shadow-md">{selectedPhonic.icon}</span>
-                <h2 className="text-2xl font-black text-slate-900 font-['Fredoka']">{selectedPhonic.word}</h2>
-                <p className="text-xs font-bold text-slate-500 italic mt-0.5">
+                <span className="text-5xl sm:text-6xl my-1 drop-shadow-md animate-bounce-gentle">
+                  {selectedPhonic.icon}
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-['Fredoka']">
+                  {selectedPhonic.word}
+                </h2>
+                <p className="text-[10px] sm:text-xs font-bold text-slate-500 italic mt-0.5 leading-tight max-w-[200px]">
                   "{selectedPhonic.sentence}"
                 </p>
               </div>
@@ -273,7 +289,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                   sound.playPop();
                   sound.speak(selectedPhonic.sentence);
                 }}
-                className="w-full max-w-xs py-2 rounded-2xl bg-[#FF2E63] text-white font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                className="w-full py-2.5 rounded-2xl bg-[#FF2E63] hover:bg-[#e02052] text-white font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
               >
                 <Volume2 className="w-4 h-4" /> <span>Hear Sound</span>
               </button>
@@ -281,7 +297,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* TAB 2: MATH COUNTING */}
+        {/* ================= TAB 2: MATH COUNTING ================= */}
         {activeTab === 'math' && (
           <div className="w-full h-full flex flex-col justify-between items-center relative py-1">
             <div className="w-full flex items-center justify-between px-2">
@@ -328,43 +344,48 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* TAB 3: NUMBERS 1 TO 50 */}
+        {/* ================= TAB 3: NUMBERS 1 TO 50 ================= */}
         {activeTab === 'numbers' && (
           <div className="w-full h-full flex gap-3 min-h-0">
-            <div className="flex-1 flex flex-col justify-between overflow-hidden border-r border-purple-100 pr-2">
-              <span className="text-[10px] font-black text-purple-900 uppercase block mb-1">
-                TAP NUMBERS (1–50) TO HEAR NAME & PRONUNCIATION! 📝
-              </span>
+            <div className="flex-[1.4] flex flex-col justify-between overflow-hidden border-r border-purple-100 pr-2">
+              <div className="flex items-center justify-between shrink-0 mb-1 px-1">
+                <span className="text-[10px] font-black text-purple-900 uppercase tracking-wider">
+                  TAP NUMBERS (1–50) TO HEAR NAME & PRONUNCIATION! 📝
+                </span>
+                <span className="text-[10px] font-extrabold text-emerald-600">1 to 50</span>
+              </div>
               <div className="flex-1 grid grid-cols-5 gap-1.5 overflow-y-auto no-scrollbar py-0.5 items-center">
                 {NUMBERS_1_TO_50.map((item) => {
                   const isSelected = selectedNumber50.num === item.num;
                   return (
-                    <button
+                    <motion.button
                       key={item.num}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => handleNumber50Click(item)}
-                      className={`h-12 rounded-xl flex flex-col items-center justify-center p-0.5 transition-all cursor-pointer ${
+                      className={`h-14 sm:h-16 rounded-2xl flex flex-col items-center justify-center p-1 transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-emerald-500 text-white shadow-md ring-2 ring-emerald-300'
+                          ? 'bg-emerald-500 text-white shadow-lg ring-3 ring-emerald-200 scale-105 border-2 border-white'
                           : 'bg-emerald-50/70 hover:bg-emerald-100 text-emerald-950 border border-emerald-100'
                       }`}
                     >
-                      <span className="text-base font-black font-['Fredoka'] leading-none">{item.num}</span>
-                      <span className="text-[8px] font-black tracking-tight line-clamp-1 mt-0.5">{item.name}</span>
-                    </button>
+                      <span className="text-xl sm:text-2xl font-black font-['Fredoka'] leading-none">{item.num}</span>
+                      <span className="text-[9px] font-black tracking-tight line-clamp-1 mt-0.5">{item.name}</span>
+                    </motion.button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="w-60 bg-[#F0FDF4] rounded-[24px] p-3 border-2 border-emerald-300 border-b-[5px] border-b-emerald-500 flex flex-col justify-between items-center text-center shrink-0">
-              <span className="bg-emerald-500 text-white text-[10px] font-black px-3 py-0.5 rounded-full uppercase">
+            <div className="w-64 sm:w-72 bg-[#F0FDF4] rounded-[28px] p-3.5 border-2 border-emerald-300 border-b-[6px] border-b-emerald-500 shadow-xl flex flex-col justify-between items-center text-center shrink-0">
+              <span className="bg-emerald-500 text-white text-[10px] sm:text-xs font-black px-3 py-0.5 rounded-full uppercase">
                 NUMBER: {selectedNumber50.num}
               </span>
               <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-6xl font-black text-emerald-600 font-['Fredoka'] leading-none">
+                <span className="text-7xl sm:text-8xl font-black text-emerald-600 font-['Fredoka'] leading-none">
                   {selectedNumber50.num}
                 </span>
-                <h2 className="text-xl font-black text-slate-900 font-['Fredoka'] mt-1">
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 font-['Fredoka'] mt-2">
                   {selectedNumber50.name}
                 </h2>
               </div>
@@ -373,7 +394,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                   sound.playPop();
                   sound.speak(`Number ${selectedNumber50.num}! ${selectedNumber50.name}`);
                 }}
-                className="w-full py-2 rounded-2xl bg-emerald-500 text-white font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                className="w-full py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
               >
                 <Volume2 className="w-4 h-4" /> <span>Say Number</span>
               </button>
@@ -381,7 +402,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* TAB 4: SHAPES MATCH */}
+        {/* ================= TAB 4: SHAPES MATCH ================= */}
         {activeTab === 'shapes' && (
           <div className="w-full h-full flex items-center justify-around px-4">
             <div className="w-48 bg-[#F0FBFF] rounded-[24px] p-4 border-2 border-cyan-200 border-b-[5px] border-b-cyan-400 shadow-md text-center flex flex-col items-center justify-center">
@@ -407,7 +428,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* TAB 5: ANIMALS */}
+        {/* ================= TAB 5: ANIMALS ================= */}
         {activeTab === 'animals' && (
           <div className="w-full h-full flex gap-3 min-h-0">
             <div className="flex-1 grid grid-cols-3 gap-2 overflow-y-auto no-scrollbar items-center">
