@@ -26,8 +26,14 @@ export default function App() {
   const [parentSettings, setParentSettings] = useState<ParentSettings>(getStoredParentSettings);
   const [isParentGateOpen, setIsParentGateOpen] = useState<boolean>(false);
 
-  useEffect(() => { saveStoredProfile(profile); }, [profile]);
-  useEffect(() => { saveStoredArtworks(savedArtworks); }, [savedArtworks]);
+  useEffect(() => {
+    saveStoredProfile(profile);
+  }, [profile]);
+
+  useEffect(() => {
+    saveStoredArtworks(savedArtworks);
+  }, [savedArtworks]);
+
   useEffect(() => {
     saveStoredParentSettings(parentSettings);
     sound.volume = parentSettings.soundVolume;
@@ -42,12 +48,18 @@ export default function App() {
     }));
   };
 
+  const handleUpdateProfile = (newProfile: ChildProfile) => {
+    setProfile(newProfile);
+    saveStoredProfile(newProfile);
+  };
+
   return (
     <div className="w-screen h-screen bg-[#F3E8FF] overflow-hidden select-none fixed inset-0 z-50">
       <main className="w-full h-full relative">
         <AnimatePresence mode="wait">
           {currentScreen === 'home' && (
             <HomeScreen
+              key={profile.name + profile.avatar}
               profile={profile}
               onNavigate={setCurrentScreen}
               onSelectColoringPage={(id) => {
@@ -95,14 +107,13 @@ export default function App() {
               settings={parentSettings}
               savedArtworks={savedArtworks}
               onUpdateSettings={setParentSettings}
-              onUpdateProfile={setProfile}
+              onUpdateProfile={handleUpdateProfile}
               onBack={() => setCurrentScreen('home')}
             />
           )}
         </AnimatePresence>
       </main>
 
-      {/* Parental Gate Modal */}
       <ParentGateModal
         isOpen={isParentGateOpen}
         onClose={() => setIsParentGateOpen(false)}

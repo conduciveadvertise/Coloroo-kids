@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   ChevronLeft,
@@ -33,6 +33,10 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   const [currentSettings, setCurrentSettings] = useState<ParentSettings>(settings);
   const [currentProfile, setCurrentProfile] = useState<ChildProfile>(profile);
   const [savedNotice, setSavedNotice] = useState(false);
+
+  useEffect(() => {
+    setCurrentProfile(profile);
+  }, [profile]);
 
   const handleSaveSettings = () => {
     sound.playCorrect();
@@ -104,7 +108,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div className="bg-purple-50 p-2.5 rounded-2xl border border-purple-200">
                 <span className="text-[9px] uppercase font-black text-purple-800 block">TODAY'S SCREEN TIME</span>
-                <span className="text-xl font-black text-purple-900 mt-0.5 block">{profile.todayMinutes || 14} mins</span>
+                <span className="text-xl font-black text-purple-900 mt-0.5 block">{currentProfile.todayMinutes || 14} mins</span>
                 <span className="text-[9px] text-emerald-600 font-bold">Safe within daily limit</span>
               </div>
               <div className="bg-rose-50 p-2.5 rounded-2xl border border-rose-200">
@@ -114,8 +118,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               </div>
               <div className="bg-amber-50 p-2.5 rounded-2xl border border-amber-200">
                 <span className="text-[9px] uppercase font-black text-amber-800 block">TOTAL STARS EARNED</span>
-                <span className="text-xl font-black text-amber-500 mt-0.5 block">{profile.stars || 21} ⭐</span>
-                <span className="text-[9px] text-slate-500 font-medium">Level {profile.level || 3} Master</span>
+                <span className="text-xl font-black text-amber-500 mt-0.5 block">{currentProfile.stars || 21} ⭐</span>
+                <span className="text-[9px] text-slate-500 font-medium">Level {currentProfile.level || 3} Master</span>
               </div>
               <div className="bg-cyan-50 p-2.5 rounded-2xl border border-cyan-200">
                 <span className="text-[9px] uppercase font-black text-cyan-800 block">LEARNING ACCURACY</span>
@@ -239,7 +243,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                     type="text"
                     value={currentProfile.name}
                     onChange={(e) => setCurrentProfile({ ...currentProfile, name: e.target.value })}
-                    className="w-full bg-white border border-purple-200 rounded-xl px-3 py-1.5 text-slate-900 font-bold text-xs"
+                    className="w-full bg-white border border-purple-200 rounded-xl px-3 py-1.5 text-slate-900 font-bold text-xs focus:outline-none focus:border-purple-600"
+                    placeholder="Enter Child's Name"
                   />
                 </div>
                 <div>
@@ -260,17 +265,31 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             </div>
 
             <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200">
-              <span className="text-[10px] font-black text-purple-950 uppercase tracking-wider block mb-2">PROFILES IN THIS HOUSEHOLD</span>
+              <span className="text-[10px] font-black text-purple-950 uppercase tracking-wider block mb-2">QUICK PROFILE SWITCH</span>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCurrentProfile({ ...currentProfile, name: 'Leo', age: 4, avatar: '🎨' })}
-                  className="px-3 py-1.5 rounded-xl bg-white border border-purple-200 hover:bg-purple-50 flex items-center gap-1.5 cursor-pointer shadow-sm text-xs font-bold"
+                  onClick={() => {
+                    sound.playPop();
+                    const p = { ...currentProfile, name: 'Leo', age: 4, avatar: '🎨' };
+                    setCurrentProfile(p);
+                    onUpdateProfile(p);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 cursor-pointer shadow-sm text-xs font-bold ${
+                    currentProfile.name === 'Leo' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-800 border-purple-200 hover:bg-purple-50'
+                  }`}
                 >
                   <span>🎨</span> Leo (Age 4)
                 </button>
                 <button
-                  onClick={() => setCurrentProfile({ ...currentProfile, name: 'Maya', age: 3, avatar: '🦄' })}
-                  className="px-3 py-1.5 rounded-xl bg-white border border-purple-200 hover:bg-purple-50 flex items-center gap-1.5 cursor-pointer shadow-sm text-xs font-bold"
+                  onClick={() => {
+                    sound.playPop();
+                    const p = { ...currentProfile, name: 'Maya', age: 3, avatar: '🦄' };
+                    setCurrentProfile(p);
+                    onUpdateProfile(p);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 cursor-pointer shadow-sm text-xs font-bold ${
+                    currentProfile.name === 'Maya' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-800 border-purple-200 hover:bg-purple-50'
+                  }`}
                 >
                   <span>🦄</span> Maya (Age 3)
                 </button>
@@ -305,7 +324,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         {/* Save Footer Bar */}
         <div className="mt-2 pt-2 border-t border-purple-100 flex items-center justify-between">
           <span className="text-[10px] text-emerald-600 font-black">
-            {savedNotice ? '✓ Settings Saved Successfully!' : 'Kid-safe sandbox active'}
+            {savedNotice ? '✓ Settings & Profile Saved Successfully!' : 'Kid-safe sandbox active'}
           </span>
           <button
             onClick={handleSaveSettings}
