@@ -50,26 +50,6 @@ export default function App() {
     pendingArtwork: null
   });
 
-  // Lock screen orientation to landscape for native mobile/tablet and web
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && 'screen' in window && 'orientation' in window.screen) {
-        const orientation = window.screen.orientation as any;
-        if (orientation && typeof orientation.lock === 'function') {
-          orientation.lock('landscape').catch(() => {});
-        }
-      }
-    } catch {}
-
-    try {
-      import('expo-screen-orientation').then((ScreenOrientation) => {
-        if (ScreenOrientation && typeof ScreenOrientation.lockAsync === 'function') {
-          ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => {});
-        }
-      }).catch(() => {});
-    } catch {}
-  }, []);
-
   // Sync storage on state change
   useEffect(() => {
     saveStoredProfile(profile);
