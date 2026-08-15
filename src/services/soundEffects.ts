@@ -118,51 +118,126 @@ class SoundEngine {
     });
   }
 
-  // Dual-Engine Speech: Streams real human voice via HTML5 Audio + SpeechSynthesis
-  speak(text: string) {
-    if (!this.enabled || !this.voiceEnabled) return;
-    const cleanText = text.replace(/[\/#!$%\^&\*;:{}=\-_`~()]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!cleanText) return;
+  // Reliable Android WebView Speech Engine
+  // Uses the device/browser TTS engine directly; no external TTS URL required.
+  private speechVoices: SpeechSynthesisVoice[] = [];
+  private speechReady = false;
 
-    // 1. Android Guaranteed Real Voice Engine (Google TTS Audio Stream)
+  private initSpeech() {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
     try {
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-        this.currentAudio = null;
+      const synth = window.speechSynthesis;
+
+      const loadVoices = () => {
+        try {
+          this.speechVoices = synth.getVoices() || [];
+          this.speechReady = true;
+        } catch {}
+      };
+
+      loadVoices();
+
+      // Android WebView may initially return an empty voice list.
+      if ('onvoiceschanged' in synth) {
+        synth.addEventListener('voiceschanged', loadVoices);
       }
-      const encoded = encodeURIComponent(cleanText);
-      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encoded}`;
-      const audio = new Audio(audioUrl);
-      audio.volume = this.volume;
-      this.currentAudio = audio;
-      audio.play().catch(() => {
-        // Fallback to SpeechSynthesis if offline
-        this.speakNativeFallback(cleanText);
-      });
-    } catch {
-      this.speakNativeFallback(cleanText);
-    }
+
+      // Some Android WebViews populate voices shortly after startup.
+      setTimeout(loadVoices, 100);
+      setTimeout(loadVoices, 500);
+      setTimeout(loadVoices, 1500);
+    } catch {}
   }
 
-  private speakNativeFallback(cleanText: string) {
+  private getEnglishVoice(): SpeechSynthesisVoice | null {
+    const voices =
+      this.speechVoices.length > 0
+        ? this.speechVoices
+        : (typeof window !== 'undefined' && 'speechSynthesis' in window
+            ? window.speechSynthesis.getVoices()
+            : []);
+
+    return (
+      voices.find(v => /^en-US$/i.test(v.lang)) ||
+      voices.find(v => /^en-GB$/i.test(v.lang)) ||
+      voices.find(v => /^en[-_]/i.test(v.lang)) ||
+      voices.find(v => v.lang.toLowerCase().startsWith('en')) ||
+      null
+    );
+  }
+
+  // Speak directly through Android/WebView TTS.
+  speak(text: string) {
+    if (!this.enabled || !this.voiceEnabled) return;
+
+    const cleanText = text
+      .replace(/[\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleanText) return;
+
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+
     try {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.resume();
-        const utt = new SpeechSynthesisUtterance(cleanText);
-        utt.rate = 0.9;
-        utt.pitch = 1.1;
-        utt.volume = this.volume;
-        utt.lang = 'en-US';
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-          const v = voices.find(voice => voice.lang.includes('en'));
-          if (v) utt.voice = v;
-        }
-        window.speechSynthesis.speak(utt);
+      const synth = window.speechSynthesis;
+
+      // Android WebView can pause the speech engine after inactivity.
+      try {
+        synth.resume();
+      } catch {}
+
+      // Stop previous narration so multiple taps do not overlap.
+      try {
+        synth.cancel();
+      } catch {}
+
+      const speakNow = () => {
+        try {
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+
+          utterance.lang = 'en-US';
+          utterance.rate = 0.9;
+          utterance.pitch = 1.05;
+          utterance.volume = this.volume;
+
+          const voice = this.getEnglishVoice();
+          if (voice) {
+            utterance.voice = voice;
+          }
+
+          utterance.onerror = () => {
+            // Give Android WebView one clean retry if the first utterance fails.
+            try {
+              synth.cancel();
+              synth.resume();
+              const retry = new SpeechSynthesisUtterance(cleanText);
+              retry.lang = voice?.lang || 'en-US';
+              retry.rate = 0.9;
+              retry.pitch = 1.05;
+              retry.volume = this.volume;
+              if (voice) retry.voice = voice;
+              synth.speak(retry);
+            } catch {}
+          };
+
+          synth.speak(utterance);
+        } catch {}
+      };
+
+      // If Android has not populated voices yet, retry after initialization.
+      if (!this.speechReady || this.speechVoices.length === 0) {
+        this.initSpeech();
+        setTimeout(speakNow, 150);
+      } else {
+        speakNow();
       }
     } catch {}
   }
+
 }
 
 export const sound = new SoundEngine();
