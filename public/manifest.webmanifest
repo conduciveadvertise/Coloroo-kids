@@ -1,0 +1,18 @@
+{
+  "name": "Coloroo Kids",
+  "short_name": "Coloroo",
+  "description": "Landscape-first educational & coloring app for kids with interactive coloring pages, mini-games, and rewards.",
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "window-controls-overlay"],
+  "orientation": "landscape",
+  "background_color": "#F3E8FF",
+  "theme_color": "#F3E8FF",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Coloroo Kids",
+  "description": "Landscape-first educational & coloring app for kids with interactive coloring pages, learning mini-games, reward badges, cute mascot, and parent dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
