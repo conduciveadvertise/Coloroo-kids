@@ -3,10 +3,29 @@ class SoundEffects {
   voiceEnabled: boolean = true;
   volume: number = 1.0;
   private audioCtx: AudioContext | null = null;
+  private voicesLoaded: boolean = false;
 
   constructor() {
-    // Lazy AudioContext init on first user interaction
-    const initCtx = () => {
+    const unlock = () => {
+      this.getAudioContext();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+      }
+    };
+    if (typeof window !== 'undefined') {
+      ['touchstart', 'touchend', 'click', 'mousedown'].forEach(evt => {
+        window.addEventListener(evt, unlock, { once: true, passive: true });
+      });
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          this.voicesLoaded = true;
+        };
+      }
+    }
+  }
+
+  private getAudioContext(): AudioContext | null {
+    try {
       if (!this.audioCtx) {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioContextClass) {
@@ -16,68 +35,51 @@ class SoundEffects {
       if (this.audioCtx && this.audioCtx.state === 'suspended') {
         this.audioCtx.resume();
       }
-    };
-    ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(evt => {
-      window.addEventListener(evt, initCtx, { once: true, passive: true });
-    });
+      return this.audioCtx;
+    } catch {
+      return null;
+    }
   }
 
-  private playTone(freq: number, type: OscillatorType, duration: number, startVol = 0.3) {
+  private playTone(freq: number, type: OscillatorType, duration: number, startVol = 0.35) {
     if (!this.enabled) return;
     try {
-      if (!this.audioCtx) {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioContextClass) this.audioCtx = new AudioContextClass();
-      }
-      if (!this.audioCtx) return;
-      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = type;
-      osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
-      gain.gain.setValueAtTime(startVol * this.volume, this.audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + duration);
-
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(startVol * this.volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
       osc.connect(gain);
-      gain.connect(this.audioCtx.destination);
+      gain.connect(ctx.destination);
       osc.start();
-      osc.stop(this.audioCtx.currentTime + duration);
+      osc.stop(ctx.currentTime + duration);
     } catch {}
   }
 
   playPop() {
-    this.playTone(600, 'sine', 0.1, 0.4);
+    this.playTone(700, 'sine', 0.12, 0.45);
   }
 
   playSparkle() {
     [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 'triangle', 0.18, 0.25), i * 60);
+      setTimeout(() => this.playTone(freq, 'triangle', 0.15, 0.3), i * 50);
     });
   }
 
   playFanfare() {
     [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
-      setTimeout(() => this.playTone(freq, 'triangle', 0.3, 0.35), i * 90);
+      setTimeout(() => this.playTone(freq, 'triangle', 0.25, 0.35), i * 80);
     });
   }
 
-  playColorChime(index: number) {
-    const scale = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99];
-    this.playTone(scale[index % scale.length], 'sine', 0.2, 0.3);
-  }
-
-  playCardFlip() {
-    this.playTone(400, 'sine', 0.08, 0.2);
-  }
-
-  playCorrect() {
-    this.playTone(587.33, 'triangle', 0.15, 0.3);
-    setTimeout(() => this.playTone(880.00, 'triangle', 0.25, 0.3), 120);
-  }
-
-  playSwoosh() {
-    this.playTone(300, 'sine', 0.12, 0.15);
+  playLetterChime(char: string) {
+    const code = char.toUpperCase().charCodeAt(0) - 65;
+    const baseFreq = 260 + (code % 12) * 35;
+    this.playTone(baseFreq, 'sine', 0.22, 0.4);
+    setTimeout(() => this.playTone(baseFreq * 1.5, 'triangle', 0.18, 0.3), 70);
   }
 
   speak(text: string) {
@@ -86,9 +88,18 @@ class SoundEffects {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = 1.2;
+        utterance.rate = 0.88;
+        utterance.pitch = 1.15;
         utterance.volume = this.volume;
+        utterance.lang = 'en-US';
+
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          const engVoice = voices.find(v => (v.lang.includes('en') || v.lang.includes('US')) && !v.name.includes('Google'));
+          if (engVoice) utterance.voice = engVoice;
+        }
+
+        // Keep speech synthesis active in Android WebView
         window.speechSynthesis.speak(utterance);
       }
     } catch {}
