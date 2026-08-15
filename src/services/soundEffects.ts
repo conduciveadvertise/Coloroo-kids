@@ -288,17 +288,37 @@ class SoundEngine {
   public speak(text: string): void {
     if (!this.voiceEnabled) return;
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.35;
-        utterance.volume = this.volume;
-
-        window.speechSynthesis.speak(utterance);
-      } catch {}
+    try {
+      import('expo-speech').then((Speech) => {
+        if (Speech && typeof Speech.speak === 'function') {
+          Speech.stop();
+          Speech.speak(text, {
+            rate: 0.95,
+            pitch: 1.25,
+            volume: this.volume
+          });
+        }
+      }).catch(() => {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.0;
+          utterance.pitch = 1.35;
+          utterance.volume = this.volume;
+          window.speechSynthesis.speak(utterance);
+        }
+      });
+    } catch {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.0;
+          utterance.pitch = 1.35;
+          utterance.volume = this.volume;
+          window.speechSynthesis.speak(utterance);
+        } catch {}
+      }
     }
   }
 }

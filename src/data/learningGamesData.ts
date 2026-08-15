@@ -16,12 +16,24 @@ export const PHONICS_LIST: PhonicsCard[] = [
   { letter: 'F', word: 'Frog', icon: '🐸', color: '#00B894', audioPrompt: 'F is for Frog! Fff, fff, Frog!', phonicsSound: 'fff' },
   { letter: 'G', word: 'Giraffe', icon: '🦒', color: '#F39C12', audioPrompt: 'G is for Giraffe! Juh, juh, Giraffe!', phonicsSound: 'juh' },
   { letter: 'H', word: 'Heart', icon: '💖', color: '#FD79A8', audioPrompt: 'H is for Heart! Hhh, hhh, Heart!', phonicsSound: 'hhh' },
+  { letter: 'I', word: 'Ice Cream', icon: '🍦', color: '#81ECEC', audioPrompt: 'I is for Ice Cream! Eye, eye, Ice Cream!', phonicsSound: 'eye' },
+  { letter: 'J', word: 'Jellyfish', icon: '🪼', color: '#E84393', audioPrompt: 'J is for Jellyfish! Juh, juh, Jellyfish!', phonicsSound: 'juh' },
   { letter: 'K', word: 'Kangaroo', icon: '🦘', color: '#FFA502', audioPrompt: 'K is for Kangaroo! Kuh, kuh, Kangaroo!', phonicsSound: 'kuh' },
   { letter: 'L', word: 'Lion', icon: '🦁', color: '#E67E22', audioPrompt: 'L is for Lion! Lll, lll, Lion!', phonicsSound: 'lll' },
   { letter: 'M', word: 'Moon', icon: '🌙', color: '#F1C40F', audioPrompt: 'M is for Moon! Mmm, mmm, Moon!', phonicsSound: 'mmm' },
+  { letter: 'N', word: 'Nest', icon: '🪺', color: '#D35400', audioPrompt: 'N is for Nest! Nnn, nnn, Nest!', phonicsSound: 'nnn' },
+  { letter: 'O', word: 'Octopus', icon: '🐙', color: '#FF7675', audioPrompt: 'O is for Octopus! Ah, ah, Octopus!', phonicsSound: 'ah' },
+  { letter: 'P', word: 'Penguin', icon: '🐧', color: '#2D3436', audioPrompt: 'P is for Penguin! Puh, puh, Penguin!', phonicsSound: 'puh' },
+  { letter: 'Q', word: 'Queen', icon: '👑', color: '#9B59B6', audioPrompt: 'Q is for Queen! Kwuh, kwuh, Queen!', phonicsSound: 'kwuh' },
   { letter: 'R', word: 'Rainbow', icon: '🌈', color: '#6C5CE7', audioPrompt: 'R is for Rainbow! Rrr, rrr, Rainbow!', phonicsSound: 'rrr' },
   { letter: 'S', word: 'Star', icon: '⭐', color: '#FDCB6E', audioPrompt: 'S is for Star! Sss, sss, Star!', phonicsSound: 'sss' },
-  { letter: 'U', word: 'Unicorn', icon: '🦄', color: '#E84393', audioPrompt: 'U is for Unicorn! You, you, Unicorn!', phonicsSound: 'you' }
+  { letter: 'T', word: 'Tiger', icon: '🐯', color: '#E67E22', audioPrompt: 'T is for Tiger! Tuh, tuh, Tiger!', phonicsSound: 'tuh' },
+  { letter: 'U', word: 'Unicorn', icon: '🦄', color: '#E84393', audioPrompt: 'U is for Unicorn! You, you, Unicorn!', phonicsSound: 'you' },
+  { letter: 'V', word: 'Volcano', icon: '🌋', color: '#C0392B', audioPrompt: 'V is for Volcano! Vvv, vvv, Volcano!', phonicsSound: 'vvv' },
+  { letter: 'W', word: 'Whale', icon: '🐳', color: '#0984E3', audioPrompt: 'W is for Whale! Wuh, wuh, Whale!', phonicsSound: 'wuh' },
+  { letter: 'X', word: 'Xylophone', icon: '🎵', color: '#00CEC9', audioPrompt: 'X is for Xylophone! Zzzz, Xylophone!', phonicsSound: 'zyl' },
+  { letter: 'Y', word: 'Yo-Yo', icon: '🪀', color: '#F39C12', audioPrompt: 'Y is for Yo-Yo! Yuh, yuh, Yo-Yo!', phonicsSound: 'yuh' },
+  { letter: 'Z', word: 'Zebra', icon: '🦓', color: '#636E72', audioPrompt: 'Z is for Zebra! Zzz, zzz, Zebra!', phonicsSound: 'zzz' }
 ];
 
 export interface MathCountingLevel {
@@ -39,11 +51,64 @@ export const COUNTING_LEVELS: MathCountingLevel[] = [
   { number: 4, word: 'Four', itemEmoji: '🌸', itemName: 'Flowers', color: '#FD79A8' },
   { number: 5, word: 'Five', itemEmoji: '⭐', itemName: 'Stars', color: '#FFA502' },
   { number: 6, word: 'Six', itemEmoji: '🧁', itemName: 'Cupcakes', color: '#A29BFE' },
-  { number: 7, word: 'Seven', itemEmoji: '🐟', itemName: 'Little Fishes', color: '#00CEC9' },
-  { number: 8, word: 'Eight', itemEmoji: '🍎', itemName: 'Crisp Apples', color: '#D63031' },
+  { number: 7, word: 'Seven', itemEmoji: '🐟', itemName: 'Fishes', color: '#00CEC9' },
+  { number: 8, word: 'Eight', itemEmoji: '🍎', itemName: 'Apples', color: '#D63031' },
   { number: 9, word: 'Nine', itemEmoji: '🚀', itemName: 'Rockets', color: '#6C5CE7' },
-  { number: 10, word: 'Ten', itemEmoji: '💎', itemName: 'Sparkly Gems', color: '#00B894' }
+  { number: 10, word: 'Ten', itemEmoji: '💎', itemName: 'Sparkly Gems', color: '#00B894' },
+  { number: 11, word: 'Eleven', itemEmoji: '🦋', itemName: 'Butterflies', color: '#74B9FF' },
+  { number: 12, word: 'Twelve', itemEmoji: '🍪', itemName: 'Cookies', color: '#E67E22' },
+  { number: 13, word: 'Thirteen', itemEmoji: '🍒', itemName: 'Cherries', color: '#E84393' },
+  { number: 14, word: 'Fourteen', itemEmoji: '🐞', itemName: 'Ladybugs', color: '#FF7675' },
+  { number: 15, word: 'Fifteen', itemEmoji: '🍬', itemName: 'Candies', color: '#FD79A8' },
+  { number: 16, word: 'Sixteen', itemEmoji: '🐝', itemName: 'Buzzy Bees', color: '#F1C40F' },
+  { number: 17, word: 'Seventeen', itemEmoji: '🍄', itemName: 'Mushrooms', color: '#D63031' },
+  { number: 18, word: 'Eighteen', itemEmoji: '🍃', itemName: 'Green Leaves', color: '#2ED573' },
+  { number: 19, word: 'Nineteen', itemEmoji: '🐬', itemName: 'Dolphins', color: '#0984E3' },
+  { number: 20, word: 'Twenty', itemEmoji: '🌈', itemName: 'Rainbows', color: '#6C5CE7' }
 ];
+
+export interface NumberNameItem {
+  number: number;
+  word: string;
+  emoji: string;
+  color: string;
+  audioPrompt: string;
+}
+
+const NUMBER_NAME_WORDS: string[] = [
+  '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen', 'Twenty',
+  'Twenty-One', 'Twenty-Two', 'Twenty-Three', 'Twenty-Four', 'Twenty-Five', 'Twenty-Six', 'Twenty-Seven', 'Twenty-Eight', 'Twenty-Nine', 'Thirty',
+  'Thirty-One', 'Thirty-Two', 'Thirty-Three', 'Thirty-Four', 'Thirty-Five', 'Thirty-Six', 'Thirty-Seven', 'Thirty-Eight', 'Thirty-Nine', 'Forty',
+  'Forty-One', 'Forty-Two', 'Forty-Three', 'Forty-Four', 'Forty-Five', 'Forty-Six', 'Forty-Seven', 'Forty-Eight', 'Forty-Nine', 'Fifty'
+];
+
+const NUMBER_EMOJIS: string[] = [
+  '⭐', '🎈', '🍓', '🌸', '🧁', '🚀', '💎', '🐟', '🍎', '🦋',
+  '🍪', '🍒', '🐞', '🍬', '🐝', '🍄', '🍃', '🐬', '🌈', '🍦',
+  '🎨', '🌻', '🎁', '🐣', '🍉', '🪁', '🥥', '🍇', '🦁', '🥑',
+  '🔔', '🍊', '🎠', '🍭', '🌮', '🦩', '🍩', '🐢', '🥞', '🥨',
+  '🧸', '🎪', '⚽', '🎯', '🎸', '🎺', '⛵', '🔮', '🪐', '👑'
+];
+
+const PALETTE_BG_COLORS = [
+  '#FF7675', '#74B9FF', '#FDCB6E', '#55EFC4', '#A29BFE',
+  '#00B894', '#F39C12', '#FD79A8', '#6C5CE7', '#00CEC9'
+];
+
+export const NUMBER_NAMES_LIST: NumberNameItem[] = Array.from({ length: 50 }, (_, i) => {
+  const num = i + 1;
+  const word = NUMBER_NAME_WORDS[num] || `${num}`;
+  const emoji = NUMBER_EMOJIS[i % NUMBER_EMOJIS.length];
+  const color = PALETTE_BG_COLORS[i % PALETTE_BG_COLORS.length];
+  return {
+    number: num,
+    word,
+    emoji,
+    color,
+    audioPrompt: `${num}! ${word}!`
+  };
+});
 
 export interface ShapeItem {
   id: string;
