@@ -46,7 +46,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
     return (
       <aside 
         id="landscape-sidebar-navigation" 
-        className="w-16 sm:w-20 md:w-24 lg:w-28 flex flex-col items-center justify-between py-1.5 sm:py-2.5 md:py-3 px-1 sm:px-2 bg-white/95 backdrop-blur-md border-r-2 md:border-r-4 border-purple-100 shadow-xl z-40 select-none shrink-0 overflow-y-auto no-scrollbar"
+        className="w-[104px] h-full flex flex-col items-center justify-between py-3 px-2 bg-white/95 backdrop-blur-md border-r-2 md:border-r-4 border-purple-100 shadow-xl z-40 select-none shrink-0 overflow-y-auto no-scrollbar"
       >
         {/* App Mini Brand Logo */}
         <button 
@@ -54,10 +54,10 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
           onClick={() => handleItemClick('home')}
           className="group flex flex-col items-center cursor-pointer mb-1 sm:mb-2 transition-transform hover:scale-105 active:scale-95 shrink-0"
         >
-          <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 p-1 shadow-md border-2 border-white flex items-center justify-center text-white text-base sm:text-xl md:text-2xl font-black italic transform -rotate-3">
+          <div className="w-12 h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 p-1 shadow-md border-2 border-white flex items-center justify-center text-white text-2xl font-black italic transform -rotate-3">
             C
           </div>
-          <span className="text-[9px] sm:text-[10px] md:text-[11px] font-black tracking-wider text-purple-900 mt-0.5 text-center font-['Fredoka'] hidden sm:block">
+          <span className="text-[11px] font-black tracking-wider text-purple-900 mt-0.5 text-center font-['Fredoka'] hidden sm:block">
             COLOROO
           </span>
         </button>
@@ -77,13 +77,13 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
                 className="group flex flex-col items-center gap-0.5 cursor-pointer w-full"
               >
                 <div 
-                  className={`w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-150 relative ${
+                  className={`w-12 h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-150 relative ${
                     isActive
                       ? 'bg-purple-600 text-white shadow-lg transform rotate-3 border-2 border-white'
                       : 'bg-gray-100 text-slate-500 hover:bg-cyan-100'
                   }`}
                 >
-                  <span className="text-base sm:text-xl md:text-2xl">{item.emoji}</span>
+                  <span className="text-2xl">{item.emoji}</span>
                   {isActive && (
                     <motion.div
                       layoutId="active-dock-pill"
@@ -91,7 +91,7 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
                     />
                   )}
                 </div>
-                <span className={`text-[8px] sm:text-[9px] md:text-[10px] font-black tracking-wider uppercase leading-none ${
+                <span className={`text-[10px] font-black tracking-wider uppercase leading-none ${
                   isActive ? 'text-purple-900' : 'text-slate-400 group-hover:text-slate-600'
                 }`}>
                   {item.label}
@@ -111,14 +111,14 @@ export const NavigationDock: React.FC<NavigationDockProps> = ({
             className="group flex flex-col items-center gap-0.5 cursor-pointer w-full opacity-90 hover:opacity-100"
             title="Parents Zone (PIN Protected)"
           >
-            <div className={`w-9 h-9 sm:w-11 sm:h-11 md:w-13 md:h-13 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all ${
+            <div className={`w-12 h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all ${
               currentScreen === 'parent'
                 ? 'bg-purple-900 text-white shadow-lg border-2 border-white'
                 : 'bg-slate-800 text-white shadow-md'
             }`}>
-              <span className="text-base sm:text-xl md:text-2xl">⚙️</span>
+              <span className="text-2xl">⚙️</span>
             </div>
-            <span className={`text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-wider leading-none ${
+            <span className={`text-[10px] font-black uppercase tracking-wider leading-none ${
               currentScreen === 'parent' ? 'text-purple-900' : 'text-slate-500'
             }`}>
               PARENTS

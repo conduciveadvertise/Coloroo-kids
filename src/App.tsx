@@ -120,7 +120,7 @@ export default function App() {
   };
 
   return (
-    <div className="w-screen h-screen bg-[#F3E8FF] flex items-center justify-center overflow-hidden p-0 sm:p-2 md:p-3 select-none relative">
+    <div className="w-full h-full bg-[#F3E8FF] flex items-center justify-center overflow-hidden p-0 select-none relative">
       {/* Artistic Flair Ambient Glowing Circles */}
       <div className="absolute top-[-100px] left-[-100px] w-80 h-80 bg-cyan-200 rounded-full blur-3xl opacity-60 pointer-events-none" />
       <div className="absolute bottom-[-60px] right-[-60px] w-[450px] h-[450px] bg-rose-200 rounded-full blur-3xl opacity-50 pointer-events-none" />
