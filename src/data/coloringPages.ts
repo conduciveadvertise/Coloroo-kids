@@ -1,626 +1,214 @@
-import { ColoringPage, StickerItem } from '../types';
+export interface SvgPath {
+  id: string;
+  d: string;
+  defaultColor?: string;
+}
+
+export interface ColoringPage {
+  id: string;
+  title: string;
+  category: string;
+  viewBox: string;
+  svgPaths: SvgPath[];
+}
+
+export interface StickerItem {
+  id: string;
+  name: string;
+  emoji: string;
+  starsRequired: number;
+  category: string;
+  unlocked?: boolean;
+}
+
+export const PALETTE_COLORS = [
+  { name: 'Red', hex: '#FF4757' },
+  { name: 'Coral', hex: '#FF6B81' },
+  { name: 'Orange', hex: '#FFA502' },
+  { name: 'Yellow', hex: '#ECCC68' },
+  { name: 'Warm Yellow', hex: '#FFEAA7' },
+  { name: 'Mint Green', hex: '#2ED573' },
+  { name: 'Emerald', hex: '#10AC84' },
+  { name: 'Teal', hex: '#00D2D3' },
+  { name: 'Sky Blue', hex: '#70A1FF' },
+  { name: 'Royal Blue', hex: '#1E90FF' },
+  { name: 'Indigo', hex: '#3742FA' },
+  { name: 'Purple', hex: '#5F27CD' },
+  { name: 'Pink', hex: '#FF78CB' },
+  { name: 'Hot Pink', hex: '#FD79A8' },
+  { name: 'Brown', hex: '#8B572A' },
+  { name: 'Cream', hex: '#FFF2E2' },
+  { name: 'Charcoal', hex: '#2F3542' },
+  { name: 'Pure White', hex: '#FFFFFF' }
+];
+
+export const UNLOCKABLE_STICKERS = [
+  { id: 'stk-1', name: 'Golden Star', emoji: '⭐', starsRequired: 0, category: 'Badges' },
+  { id: 'stk-2', name: 'Rainbow Sparkle', emoji: '🌈', starsRequired: 5, category: 'Magic' },
+  { id: 'stk-3', name: 'Royal Crown', emoji: '👑', starsRequired: 10, category: 'Royal' },
+  { id: 'stk-4', name: 'Magic Unicorn', emoji: '🦄', starsRequired: 15, category: 'Magic' },
+  { id: 'stk-5', name: 'Cosmic Rocket', emoji: '🚀', starsRequired: 20, category: 'Space' },
+  { id: 'stk-6', name: 'Golden Trophy', emoji: '🏆', starsRequired: 25, category: 'Awards' },
+  { id: 'stk-7', name: 'Diamond Gem', emoji: '💎', starsRequired: 30, category: 'Treasure' },
+  { id: 'stk-8', name: 'Super Champion Medal', emoji: '🥇', starsRequired: 40, category: 'Awards' }
+];
 
 export const COLORING_PAGES: ColoringPage[] = [
   {
     id: 'roo-artist',
     title: 'Coloroo The Painter',
-    category: 'animals',
-    difficulty: 'easy',
-    tags: ['mascot', 'kangaroo', 'cute', 'beret'],
-    thumbnailSvg: 'M 100,50 C 70,50 50,80 50,110 C 50,140 70,170 100,170 C 130,170 150,140 150,110 C 150,80 130,50 100,50 Z',
+    category: 'Characters',
+    viewBox: '0 0 200 260',
     svgPaths: [
-      // Beret Cap
-      {
-        id: 'beret',
-        name: 'Artist Beret',
-        d: 'M 70,60 C 50,45 80,25 120,30 C 160,35 155,55 140,65 C 120,58 90,56 70,60 Z',
-        defaultFill: '#FF7675'
-      },
-      {
-        id: 'beret-stalk',
-        name: 'Beret Pom',
-        d: 'M 108,30 C 108,20 116,20 116,30 Z',
-        defaultFill: '#D63031'
-      },
-      // Left Ear
-      {
-        id: 'ear-left',
-        name: 'Left Ear',
-        d: 'M 55,75 C 30,30 50,15 70,45 C 65,55 60,65 55,75 Z',
-        defaultFill: '#FDCB6E'
-      },
-      {
-        id: 'ear-left-inner',
-        name: 'Left Ear Inner',
-        d: 'M 56,65 C 43,40 54,28 65,48 Z',
-        defaultFill: '#FAB1A0'
-      },
-      // Right Ear
-      {
-        id: 'ear-right',
-        name: 'Right Ear',
-        d: 'M 145,75 C 170,30 150,15 130,45 C 135,55 140,65 145,75 Z',
-        defaultFill: '#FDCB6E'
-      },
-      {
-        id: 'ear-right-inner',
-        name: 'Right Ear Inner',
-        d: 'M 144,65 C 157,40 146,28 135,48 Z',
-        defaultFill: '#FAB1A0'
-      },
-      // Head
-      {
-        id: 'head',
-        name: 'Face',
-        d: 'M 60,80 C 45,115 65,150 100,150 C 135,150 155,115 140,80 C 120,70 80,70 60,80 Z',
-        defaultFill: '#FFEAA7'
-      },
-      // Snout / Cheeks
-      {
-        id: 'muzzle',
-        name: 'Snout',
-        d: 'M 75,110 C 75,95 125,95 125,110 C 125,135 75,135 75,110 Z',
-        defaultFill: '#FFF'
-      },
-      // Nose
-      {
-        id: 'nose',
-        name: 'Nose',
-        d: 'M 93,105 C 93,100 107,100 107,105 C 107,112 93,112 93,105 Z',
-        defaultFill: '#2D3436'
-      },
-      // Eyes
-      {
-        id: 'eye-left',
-        name: 'Left Eye',
-        d: 'M 78,92 C 78,86 86,86 86,92 C 86,98 78,98 78,92 Z',
-        defaultFill: '#2D3436'
-      },
-      {
-        id: 'eye-right',
-        name: 'Right Eye',
-        d: 'M 114,92 C 114,86 122,86 122,92 C 122,98 114,98 114,92 Z',
-        defaultFill: '#2D3436'
-      },
-      // Cheek Blushes
-      {
-        id: 'blush-left',
-        name: 'Left Cheek',
-        d: 'M 65,115 C 65,108 77,108 77,115 C 77,122 65,122 65,115 Z',
-        defaultFill: '#FD79A8'
-      },
-      {
-        id: 'blush-right',
-        name: 'Right Cheek',
-        d: 'M 123,115 C 123,108 135,108 135,115 C 135,122 123,122 123,115 Z',
-        defaultFill: '#FD79A8'
-      },
-      // Body
-      {
-        id: 'body',
-        name: 'Body',
-        d: 'M 70,145 C 50,170 50,220 70,240 C 90,250 110,250 130,240 C 150,220 150,170 130,145 Z',
-        defaultFill: '#FDCB6E'
-      },
-      // Pouch Belly
-      {
-        id: 'belly-pouch',
-        name: 'Pouch Belly',
-        d: 'M 75,170 C 75,225 125,225 125,170 C 100,165 100,165 75,170 Z',
-        defaultFill: '#FFEAA7'
-      },
-      // Left Arm Holding Palette
-      {
-        id: 'arm-left',
-        name: 'Left Arm',
-        d: 'M 65,155 C 40,160 30,185 45,195 C 55,195 65,185 70,170 Z',
-        defaultFill: '#FDCB6E'
-      },
-      // Paint Palette
-      {
-        id: 'palette',
-        name: 'Paint Palette',
-        d: 'M 30,180 C 15,190 20,230 50,225 C 65,220 60,195 45,185 C 40,180 35,180 30,180 Z',
-        defaultFill: '#DFE6E9'
-      },
-      // Paint Drops on Palette
-      {
-        id: 'paint-drop-1',
-        name: 'Red Color Paint',
-        d: 'M 28,195 A 4 4 0 1 0 36 195 A 4 4 0 1 0 28 195',
-        defaultFill: '#E84393'
-      },
-      {
-        id: 'paint-drop-2',
-        name: 'Blue Color Paint',
-        d: 'M 38,208 A 4 4 0 1 0 46 208 A 4 4 0 1 0 38 208',
-        defaultFill: '#0984E3'
-      },
-      {
-        id: 'paint-drop-3',
-        name: 'Yellow Color Paint',
-        d: 'M 48,198 A 4 4 0 1 0 56 198 A 4 4 0 1 0 48 198',
-        defaultFill: '#F1C40F'
-      },
-      // Right Arm with Brush
-      {
-        id: 'arm-right',
-        name: 'Right Arm',
-        d: 'M 130,155 C 155,160 165,175 160,195 C 150,195 140,185 130,170 Z',
-        defaultFill: '#FDCB6E'
-      },
-      // Brush Handle & Bristle
-      {
-        id: 'brush-handle',
-        name: 'Brush Handle',
-        d: 'M 155,170 L 178,140 L 182,143 L 159,173 Z',
-        defaultFill: '#B2BEC3'
-      },
-      {
-        id: 'brush-tip',
-        name: 'Brush Tip Paint',
-        d: 'M 178,140 C 182,130 190,130 188,145 Z',
-        defaultFill: '#6C5CE7'
-      },
-      // Feet
-      {
-        id: 'foot-left',
-        name: 'Left Foot',
-        d: 'M 60,235 C 40,240 50,260 80,255 C 80,245 70,240 60,235 Z',
-        defaultFill: '#FDCB6E'
-      },
-      {
-        id: 'foot-right',
-        name: 'Right Foot',
-        d: 'M 140,235 C 160,240 150,260 120,255 C 120,245 130,240 140,235 Z',
-        defaultFill: '#FDCB6E'
-      }
+      { id: 'hat-top', d: 'M95,36 C100,32 105,32 105,36 Z', defaultColor: '#FF4757' },
+      { id: 'beret', d: 'M68,52 C70,38 130,38 132,52 C125,58 75,58 68,52 Z', defaultColor: '#FF6B81' },
+      { id: 'ear-left', d: 'M55,42 C50,22 68,22 75,44 Z', defaultColor: '#FFA502' },
+      { id: 'ear-right', d: 'M145,42 C150,22 132,22 125,44 Z', defaultColor: '#FFA502' },
+      { id: 'head', d: 'M62,60 C55,100 145,100 138,60 C130,55 70,55 62,60 Z', defaultColor: '#FFEAA7' },
+      { id: 'muzzle', d: 'M80,72 C80,66 120,66 120,72 C120,85 80,85 80,72 Z', defaultColor: '#FFFFFF' },
+      { id: 'nose', d: 'M94,68 C96,65 104,65 106,68 C106,73 94,73 94,68 Z', defaultColor: '#2F3542' },
+      { id: 'body', d: 'M65,108 C50,165 150,165 135,108 Z', defaultColor: '#FFA502' },
+      { id: 'belly', d: 'M80,118 C75,152 125,152 120,118 Z', defaultColor: '#FFEAA7' },
+      { id: 'palette', d: 'M40,125 C30,135 32,165 52,162 C62,160 62,130 40,125 Z', defaultColor: '#FFFFFF' },
+      { id: 'palette-hole', d: 'M44,142 C42,142 42,146 44,146 C46,146 46,142 44,142 Z', defaultColor: '#2F3542' },
+      { id: 'brush-handle', d: 'M130,125 L165,88', defaultColor: '#2F3542' },
+      { id: 'brush-tip', d: 'M165,88 C168,85 172,88 170,92 Z', defaultColor: '#5F27CD' },
+      { id: 'foot-left', d: 'M65,168 C55,178 80,182 85,170 Z', defaultColor: '#FFA502' },
+      { id: 'foot-right', d: 'M135,168 C145,178 120,182 115,170 Z', defaultColor: '#FFA502' }
     ]
   },
   {
-    id: 'cute-dino',
+    id: 'baby-dino',
     title: 'Happy Baby Dino',
-    category: 'dinosaurs',
-    difficulty: 'easy',
-    tags: ['dinosaur', 'cute', 'nature', 'jurassic'],
-    thumbnailSvg: 'M 50,150 C 40,90 120,70 150,100 C 170,120 160,180 120,190 Z',
+    category: 'Animals',
+    viewBox: '0 0 200 260',
     svgPaths: [
-      // Dino Spikes
-      {
-        id: 'spike-1',
-        name: 'Top Spike',
-        d: 'M 80,75 L 75,55 L 95,68 Z',
-        defaultFill: '#FF7675'
-      },
-      {
-        id: 'spike-2',
-        name: 'Middle Spike',
-        d: 'M 105,70 L 110,48 L 122,68 Z',
-        defaultFill: '#FFA502'
-      },
-      {
-        id: 'spike-3',
-        name: 'Back Spike',
-        d: 'M 135,80 L 148,60 L 148,88 Z',
-        defaultFill: '#F1C40F'
-      },
-      {
-        id: 'spike-4',
-        name: 'Tail Spike',
-        d: 'M 160,110 L 180,105 L 168,125 Z',
-        defaultFill: '#55EFC4'
-      },
-      // Head and Body
-      {
-        id: 'dino-body',
-        name: 'Dino Body',
-        d: 'M 60,100 C 60,65 125,65 140,100 C 155,130 155,160 185,150 C 190,175 160,195 135,185 C 125,215 75,215 65,185 C 45,165 45,120 60,100 Z',
-        defaultFill: '#55EFC4'
-      },
-      // Belly Patch
-      {
-        id: 'dino-belly',
-        name: 'Dino Belly',
-        d: 'M 70,130 C 95,130 115,155 110,190 C 85,195 70,170 70,130 Z',
-        defaultFill: '#FFEAA7'
-      },
-      // Eye & Cheek
-      {
-        id: 'dino-eye',
-        name: 'Eye',
-        d: 'M 80,95 A 7 7 0 1 0 94 95 A 7 7 0 1 0 80 95',
-        defaultFill: '#2D3436'
-      },
-      {
-        id: 'dino-blush',
-        name: 'Cheek Blush',
-        d: 'M 72,112 A 6 6 0 1 0 84 112 A 6 6 0 1 0 72 112',
-        defaultFill: '#FD79A8'
-      },
-      // Legs
-      {
-        id: 'leg-front',
-        name: 'Front Leg',
-        d: 'M 68,185 C 68,225 90,225 90,185 Z',
-        defaultFill: '#00B894'
-      },
-      {
-        id: 'leg-back',
-        name: 'Back Leg',
-        d: 'M 115,185 C 115,225 138,225 138,185 Z',
-        defaultFill: '#00B894'
-      },
-      // Cute Egg Shell on ground
-      {
-        id: 'egg-shell',
-        name: 'Egg Shell',
-        d: 'M 140,210 L 150,195 L 160,210 L 170,195 L 180,215 C 170,235 150,235 140,210 Z',
-        defaultFill: '#74B9FF'
-      }
+      { id: 'dino-body', d: 'M70,70 C40,90 40,170 85,180 C130,190 170,140 150,90 C135,50 90,50 70,70 Z', defaultColor: '#2ED573' },
+      { id: 'dino-belly', d: 'M80,110 C65,130 70,165 95,168 C120,170 125,135 110,110 Z', defaultColor: '#ECCC68' },
+      { id: 'dino-spike1', d: 'M75,55 L82,40 L90,55 Z', defaultColor: '#FFA502' },
+      { id: 'dino-spike2', d: 'M95,50 L104,35 L112,50 Z', defaultColor: '#FFA502' },
+      { id: 'dino-spike3', d: 'M118,52 L128,38 L134,55 Z', defaultColor: '#FFA502' },
+      { id: 'dino-eye', d: 'M85,82 C82,82 82,90 85,90 C88,90 88,82 85,82 Z', defaultColor: '#2F3542' },
+      { id: 'dino-foot1', d: 'M70,178 C60,192 88,195 90,180 Z', defaultColor: '#10AC84' },
+      { id: 'dino-foot2', d: 'M115,178 C110,195 138,192 130,180 Z', defaultColor: '#10AC84' }
     ]
   },
   {
-    id: 'rainbow-unicorn',
+    id: 'magic-unicorn',
     title: 'Magic Unicorn & Stars',
-    category: 'fantasy',
-    difficulty: 'medium',
-    tags: ['unicorn', 'rainbow', 'stars', 'magic', 'glitter'],
-    thumbnailSvg: 'M 80,100 C 60,60 140,40 160,90 C 170,130 120,180 80,170 Z',
+    category: 'Fantasy',
+    viewBox: '0 0 200 260',
     svgPaths: [
-      // Golden Horn
-      {
-        id: 'horn',
-        name: 'Magic Golden Horn',
-        d: 'M 105,40 L 125,5 L 115,42 Z',
-        defaultFill: '#FDCB6E'
-      },
-      // Unicorn Head & Neck
-      {
-        id: 'unicorn-head',
-        name: 'Unicorn Face',
-        d: 'M 85,60 C 95,45 130,50 140,70 C 150,90 125,120 100,120 C 80,120 70,85 85,60 Z',
-        defaultFill: '#FFFFFF'
-      },
-      // Mane Strips (Rainbow Colors)
-      {
-        id: 'mane-1',
-        name: 'Pink Mane Strand',
-        d: 'M 125,55 C 145,45 165,65 155,85 C 140,75 135,65 125,55 Z',
-        defaultFill: '#FD79A8'
-      },
-      {
-        id: 'mane-2',
-        name: 'Purple Mane Strand',
-        d: 'M 135,75 C 160,75 175,95 160,115 C 145,100 140,90 135,75 Z',
-        defaultFill: '#A29BFE'
-      },
-      {
-        id: 'mane-3',
-        name: 'Cyan Mane Strand',
-        d: 'M 130,105 C 155,110 165,135 150,150 C 135,135 130,120 130,105 Z',
-        defaultFill: '#81ECEC'
-      },
-      // Eye & Muzzle
-      {
-        id: 'unicorn-eye',
-        name: 'Sparkle Eye',
-        d: 'M 98,75 A 5 5 0 1 0 108 75 A 5 5 0 1 0 98 75',
-        defaultFill: '#2D3436'
-      },
-      {
-        id: 'unicorn-muzzle',
-        name: 'Soft Snout',
-        d: 'M 75,95 C 70,115 95,115 95,95 Z',
-        defaultFill: '#FAB1A0'
-      },
-      // Body
-      {
-        id: 'unicorn-body',
-        name: 'Body',
-        d: 'M 85,120 C 65,140 65,190 90,205 C 125,210 150,195 145,145 C 130,130 105,120 85,120 Z',
-        defaultFill: '#F8F9FA'
-      },
-      // Rainbow Arc 1
-      {
-        id: 'rainbow-red',
-        name: 'Rainbow Coral',
-        d: 'M 20,230 C 50,160 170,160 200,230 L 190,230 C 162,175 58,175 30,230 Z',
-        defaultFill: '#FF7675'
-      },
-      // Rainbow Arc 2
-      {
-        id: 'rainbow-yellow',
-        name: 'Rainbow Yellow',
-        d: 'M 30,230 C 58,175 162,175 190,230 L 180,230 C 155,190 65,190 40,230 Z',
-        defaultFill: '#FFEAA7'
-      },
-      // Rainbow Arc 3
-      {
-        id: 'rainbow-blue',
-        name: 'Rainbow Blue',
-        d: 'M 40,230 C 65,190 155,190 180,230 L 170,230 C 148,202 72,202 50,230 Z',
-        defaultFill: '#74B9FF'
-      },
-      // Floating Star
-      {
-        id: 'magic-star',
-        name: 'Magic Star',
-        d: 'M 45,50 L 50,62 L 63,62 L 53,70 L 57,82 L 45,74 L 33,82 L 37,70 L 27,62 L 40,62 Z',
-        defaultFill: '#FDCB6E'
-      }
+      { id: 'uni-horn', d: 'M95,30 L105,30 L100,5 Z', defaultColor: '#ECCC68' },
+      { id: 'uni-head', d: 'M70,50 C55,80 80,110 110,105 C135,100 135,60 115,45 Z', defaultColor: '#FFFFFF' },
+      { id: 'uni-ear', d: 'M112,38 C118,25 125,32 122,45 Z', defaultColor: '#FF78CB' },
+      { id: 'uni-mane1', d: 'M120,55 C145,50 150,75 130,85 Z', defaultColor: '#70A1FF' },
+      { id: 'uni-mane2', d: 'M125,85 C150,85 150,110 120,115 Z', defaultColor: '#FF78CB' },
+      { id: 'uni-body', d: 'M60,105 C40,160 145,170 140,115 Z', defaultColor: '#FFFFFF' },
+      { id: 'uni-star', d: 'M160,35 L163,42 L170,43 L165,48 L166,55 L160,51 L154,55 L155,48 L150,43 L157,42 Z', defaultColor: '#FFA502' }
     ]
   },
   {
-    id: 'space-rocket',
+    id: 'cosmic-rocket',
     title: 'Cosmic Star Rocket',
-    category: 'vehicles',
-    difficulty: 'easy',
-    tags: ['space', 'rocket', 'planets', 'stars', 'astronaut'],
-    thumbnailSvg: 'M 100,30 L 140,150 L 60,150 Z',
+    category: 'Space',
+    viewBox: '0 0 200 260',
     svgPaths: [
-      // Rocket Nose Cone
-      {
-        id: 'nose-cone',
-        name: 'Rocket Nose Cone',
-        d: 'M 100,30 C 110,50 125,75 125,95 L 75,95 C 75,75 90,50 100,30 Z',
-        defaultFill: '#FF7675'
-      },
-      // Main Rocket Body
-      {
-        id: 'rocket-fuselage',
-        name: 'Rocket Body',
-        d: 'M 75,95 L 125,95 L 125,175 L 75,175 Z',
-        defaultFill: '#F3F0FF'
-      },
-      // Porthole Window Outer
-      {
-        id: 'porthole-outer',
-        name: 'Window Frame',
-        d: 'M 85,130 A 15 15 0 1 0 115 130 A 15 15 0 1 0 85,130',
-        defaultFill: '#FFEAA7'
-      },
-      // Porthole Glass
-      {
-        id: 'porthole-glass',
-        name: 'Window Glass',
-        d: 'M 89,130 A 11 11 0 1 0 111 130 A 11 11 0 1 0 89,130',
-        defaultFill: '#74B9FF'
-      },
-      // Left Fin
-      {
-        id: 'fin-left',
-        name: 'Left Wing Fin',
-        d: 'M 75,145 L 45,190 L 75,180 Z',
-        defaultFill: '#6C5CE7'
-      },
-      // Right Fin
-      {
-        id: 'fin-right',
-        name: 'Right Wing Fin',
-        d: 'M 125,145 L 155,190 L 125,180 Z',
-        defaultFill: '#6C5CE7'
-      },
-      // Flame Thruster Outer
-      {
-        id: 'flame-outer',
-        name: 'Orange Flame',
-        d: 'M 82,175 L 100,225 L 118,175 Z',
-        defaultFill: '#FFA502'
-      },
-      // Flame Thruster Core
-      {
-        id: 'flame-core',
-        name: 'Yellow Core Flame',
-        d: 'M 88,175 L 100,205 L 112,175 Z',
-        defaultFill: '#FFF'
-      },
-      // Saturn Planet
-      {
-        id: 'planet-body',
-        name: 'Ring Planet',
-        d: 'M 155,70 A 18 18 0 1 0 191 70 A 18 18 0 1 0 155 70',
-        defaultFill: '#A29BFE'
-      },
-      {
-        id: 'planet-ring',
-        name: 'Planet Ring',
-        d: 'M 142,70 C 142,60 204,60 204,70 C 204,80 142,80 142,70 Z',
-        defaultFill: '#FD79A8'
-      }
+      { id: 'rocket-nose', d: 'M100,20 C85,45 115,45 100,20 Z', defaultColor: '#FF4757' },
+      { id: 'rocket-body', d: 'M80,45 C75,110 125,110 120,45 Z', defaultColor: '#FFFFFF' },
+      { id: 'rocket-window', d: 'M92,68 C88,68 88,82 92,82 C108,82 108,68 92,68 Z', defaultColor: '#70A1FF' },
+      { id: 'fin-left', d: 'M78,95 L55,128 L80,120 Z', defaultColor: '#FF4757' },
+      { id: 'fin-right', d: 'M122,95 L145,128 L120,120 Z', defaultColor: '#FF4757' },
+      { id: 'fire-outer', d: 'M85,122 L100,165 L115,122 Z', defaultColor: '#FFA502' },
+      { id: 'fire-inner', d: 'M92,122 L100,150 L108,122 Z', defaultColor: '#ECCC68' }
     ]
   },
   {
-    id: 'happy-firetruck',
+    id: 'fire-truck',
     title: 'Brave Little Fire Truck',
-    category: 'vehicles',
-    difficulty: 'medium',
-    tags: ['truck', 'fire', 'hero', 'wheels'],
-    thumbnailSvg: 'M 40,100 L 160,100 L 160,180 L 40,180 Z',
+    category: 'Vehicles',
+    viewBox: '0 0 200 260',
     svgPaths: [
-      // Siren Emergency Light
-      {
-        id: 'siren',
-        name: 'Flashing Siren',
-        d: 'M 90,80 C 90,70 110,70 110,80 Z',
-        defaultFill: '#00CEC9'
-      },
-      // Truck Cabin Front
-      {
-        id: 'truck-cab',
-        name: 'Truck Cab',
-        d: 'M 120,85 L 165,115 L 165,160 L 120,160 Z',
-        defaultFill: '#FF7675'
-      },
-      // Front Windshield
-      {
-        id: 'windshield',
-        name: 'Windshield',
-        d: 'M 125,95 L 155,115 L 125,115 Z',
-        defaultFill: '#81ECEC'
-      },
-      // Main Body Tank
-      {
-        id: 'truck-body',
-        name: 'Main Red Body',
-        d: 'M 40,105 L 120,105 L 120,160 L 40,160 Z',
-        defaultFill: '#D63031'
-      },
-      // Ladder on top
-      {
-        id: 'ladder',
-        name: 'Rescue Ladder',
-        d: 'M 45,95 L 115,95 L 115,102 L 45,102 Z',
-        defaultFill: '#FFEAA7'
-      },
-      // Water Hose Reel
-      {
-        id: 'hose-reel',
-        name: 'Water Hose',
-        d: 'M 50,118 A 12 12 0 1 0 74 118 A 12 12 0 1 0 50 118',
-        defaultFill: '#FDCB6E'
-      },
-      // Front Wheel
-      {
-        id: 'wheel-front',
-        name: 'Front Wheel Tire',
-        d: 'M 125,160 A 16 16 0 1 0 157 160 A 16 16 0 1 0 125 160',
-        defaultFill: '#2D3436'
-      },
-      {
-        id: 'hubcap-front',
-        name: 'Front Hubcap',
-        d: 'M 133,160 A 8 8 0 1 0 149 160 A 8 8 0 1 0 133 160',
-        defaultFill: '#DFE6E9'
-      },
-      // Rear Wheel
-      {
-        id: 'wheel-rear',
-        name: 'Rear Wheel Tire',
-        d: 'M 50,160 A 16 16 0 1 0 82 160 A 16 16 0 1 0 50 160',
-        defaultFill: '#2D3436'
-      },
-      {
-        id: 'hubcap-rear',
-        name: 'Rear Hubcap',
-        d: 'M 58,160 A 8 8 0 1 0 74 160 A 8 8 0 1 0 58 160',
-        defaultFill: '#DFE6E9'
-      }
+      { id: 'truck-cab', d: 'M40,95 L100,95 L100,150 L40,150 Z', defaultColor: '#FF4757' },
+      { id: 'truck-window', d: 'M48,105 L82,105 L82,125 L48,125 Z', defaultColor: '#70A1FF' },
+      { id: 'truck-body', d: 'M100,110 L165,110 L165,150 L100,150 Z', defaultColor: '#FF4757' },
+      { id: 'ladder', d: 'M105,92 L160,92 L160,105 L105,105 Z', defaultColor: '#FFEAA7' },
+      { id: 'siren', d: 'M60,85 C60,78 72,78 72,85 Z', defaultColor: '#00D2D3' },
+      { id: 'wheel-left', d: 'M55,150 C45,150 45,175 55,175 C75,175 75,150 55,150 Z', defaultColor: '#2F3542' },
+      { id: 'wheel-right', d: 'M135,150 C125,150 125,175 135,175 C155,175 155,150 135,150 Z', defaultColor: '#2F3542' }
     ]
   },
   {
-    id: 'ocean-turtle',
-    title: 'Friendly Sea Turtle',
-    category: 'nature',
-    difficulty: 'easy',
-    tags: ['ocean', 'turtle', 'coral', 'sea', 'water'],
-    thumbnailSvg: 'M 80,100 C 60,80 140,80 120,140 C 100,160 80,140 80,100 Z',
+    id: 'cute-puppy',
+    title: 'Cute Playful Puppy',
+    category: 'Animals',
+    viewBox: '0 0 200 260',
     svgPaths: [
-      // Turtle Shell
-      {
-        id: 'turtle-shell',
-        name: 'Turtle Shell',
-        d: 'M 70,120 C 70,65 145,65 145,120 C 145,160 70,160 70,120 Z',
-        defaultFill: '#00B894'
-      },
-      // Shell Hex Pattern 1
-      {
-        id: 'shell-pattern-1',
-        name: 'Shell Hex Center',
-        d: 'M 95,90 L 115,90 L 125,108 L 115,125 L 95,125 L 85,108 Z',
-        defaultFill: '#55EFC4'
-      },
-      // Head
-      {
-        id: 'turtle-head',
-        name: 'Cute Head',
-        d: 'M 135,110 C 150,90 180,100 175,125 C 170,140 145,135 135,110 Z',
-        defaultFill: '#81ECEC'
-      },
-      // Eye & Smile
-      {
-        id: 'turtle-eye',
-        name: 'Happy Eye',
-        d: 'M 158,110 A 4 4 0 1 0 166 110 A 4 4 0 1 0 158 110',
-        defaultFill: '#2D3436'
-      },
-      // Front Flippers
-      {
-        id: 'flipper-top',
-        name: 'Top Flipper',
-        d: 'M 115,75 C 130,40 160,50 145,75 Z',
-        defaultFill: '#81ECEC'
-      },
-      {
-        id: 'flipper-bottom',
-        name: 'Bottom Flipper',
-        d: 'M 115,145 C 130,180 160,170 145,145 Z',
-        defaultFill: '#81ECEC'
-      },
-      // Back Flippers
-      {
-        id: 'flipper-back-1',
-        name: 'Back Top Flipper',
-        d: 'M 75,85 C 60,65 50,75 70,95 Z',
-        defaultFill: '#81ECEC'
-      },
-      {
-        id: 'flipper-back-2',
-        name: 'Back Bottom Flipper',
-        d: 'M 75,135 C 60,155 50,145 70,125 Z',
-        defaultFill: '#81ECEC'
-      },
-      // Sea Bubbles
-      {
-        id: 'bubble-1',
-        name: 'Sea Bubble 1',
-        d: 'M 180,85 A 6 6 0 1 0 192 85 A 6 6 0 1 0 180 85',
-        defaultFill: '#74B9FF'
-      },
-      {
-        id: 'bubble-2',
-        name: 'Sea Bubble 2',
-        d: 'M 190,65 A 4 4 0 1 0 198 65 A 4 4 0 1 0 190 65',
-        defaultFill: '#74B9FF'
-      }
+      { id: 'pup-ear-l', d: 'M50,45 C35,70 50,100 65,85 Z', defaultColor: '#8B572A' },
+      { id: 'pup-ear-r', d: 'M150,45 C165,70 150,100 135,85 Z', defaultColor: '#8B572A' },
+      { id: 'pup-head', d: 'M62,48 C55,95 145,95 138,48 C120,40 80,40 62,48 Z', defaultColor: '#FFEAA7' },
+      { id: 'pup-muzzle', d: 'M80,70 C75,90 125,90 120,70 Z', defaultColor: '#FFFFFF' },
+      { id: 'pup-nose', d: 'M94,68 C94,62 106,62 106,68 C106,74 94,74 94,68 Z', defaultColor: '#2F3542' },
+      { id: 'pup-body', d: 'M68,98 C50,165 150,165 132,98 Z', defaultColor: '#FFEAA7' },
+      { id: 'pup-collar', d: 'M70,96 C90,105 110,105 130,96 L130,104 C110,113 90,113 70,104 Z', defaultColor: '#FF4757' },
+      { id: 'pup-paw-l', d: 'M65,160 C55,175 85,175 80,160 Z', defaultColor: '#FFFFFF' },
+      { id: 'pup-paw-r', d: 'M120,160 C115,175 145,175 135,160 Z', defaultColor: '#FFFFFF' }
+    ]
+  },
+  {
+    id: 'sweet-cupcake',
+    title: 'Sweet Birthday Cupcake',
+    category: 'Treats',
+    viewBox: '0 0 200 260',
+    svgPaths: [
+      { id: 'cherry', d: 'M95,30 C88,25 112,25 105,30 C112,42 88,42 95,30 Z', defaultColor: '#FF4757' },
+      { id: 'cherry-stem', d: 'M100,24 C100,10 115,12 118,8', defaultColor: '#2ED573' },
+      { id: 'frosting-top', d: 'M65,65 C60,40 140,40 135,65 Z', defaultColor: '#FF78CB' },
+      { id: 'frosting-mid', d: 'M50,90 C45,62 155,62 150,90 Z', defaultColor: '#FF6B81' },
+      { id: 'cup-base', d: 'M55,95 L70,165 L130,165 L145,95 Z', defaultColor: '#70A1FF' },
+      { id: 'cup-stripe1', d: 'M75,95 L84,165', defaultColor: '#FFFFFF' },
+      { id: 'cup-stripe2', d: 'M100,95 L100,165', defaultColor: '#FFFFFF' },
+      { id: 'cup-stripe3', d: 'M125,95 L116,165', defaultColor: '#FFFFFF' }
+    ]
+  },
+  {
+    id: 'friendly-lion',
+    title: 'Friendly Brave Lion',
+    category: 'Animals',
+    viewBox: '0 0 200 260',
+    svgPaths: [
+      { id: 'lion-mane', d: 'M50,45 C30,95 30,125 55,145 C100,175 160,140 155,90 C150,40 100,20 50,45 Z', defaultColor: '#FFA502' },
+      { id: 'lion-face', d: 'M68,62 C60,110 140,110 132,62 C125,50 75,50 68,62 Z', defaultColor: '#FFEAA7' },
+      { id: 'lion-nose', d: 'M92,80 L108,80 L100,90 Z', defaultColor: '#8B572A' },
+      { id: 'lion-body', d: 'M70,140 C55,185 145,185 130,140 Z', defaultColor: '#ECCC68' },
+      { id: 'lion-belly', d: 'M85,145 C78,175 122,175 115,145 Z', defaultColor: '#FFF2E2' }
+    ]
+  },
+  {
+    id: 'magic-butterfly',
+    title: 'Magic Butterfly Garden',
+    category: 'Nature',
+    viewBox: '0 0 200 260',
+    svgPaths: [
+      { id: 'wing-tl', d: 'M95,85 C60,25 25,65 75,100 Z', defaultColor: '#FF78CB' },
+      { id: 'wing-tr', d: 'M105,85 C140,25 175,65 125,100 Z', defaultColor: '#FF78CB' },
+      { id: 'wing-bl', d: 'M95,105 C55,105 45,150 85,135 Z', defaultColor: '#70A1FF' },
+      { id: 'wing-br', d: 'M105,105 C145,105 155,150 115,135 Z', defaultColor: '#70A1FF' },
+      { id: 'bf-body', d: 'M96,65 C92,120 108,120 104,65 Z', defaultColor: '#2F3542' },
+      { id: 'bf-head', d: 'M95,58 C92,50 108,50 105,58 Z', defaultColor: '#2F3542' }
+    ]
+  },
+  {
+    id: 'sunny-sailboat',
+    title: 'Little Sunny Sailboat',
+    category: 'Vehicles',
+    viewBox: '0 0 200 260',
+    svgPaths: [
+      { id: 'sun', d: 'M150,30 C140,30 140,55 150,55 C165,55 165,30 150,30 Z', defaultColor: '#FFA502' },
+      { id: 'sail-big', d: 'M95,40 L95,120 L45,120 Z', defaultColor: '#FF4757' },
+      { id: 'sail-small', d: 'M102,55 L102,120 L145,120 Z', defaultColor: '#ECCC68' },
+      { id: 'boat-hull', d: 'M40,128 L60,165 L140,165 L160,128 Z', defaultColor: '#8B572A' },
+      { id: 'sea-wave', d: 'M25,165 C55,160 85,175 115,165 C145,160 175,175 185,165 L185,185 L25,185 Z', defaultColor: '#00D2D3' }
     ]
   }
-];
-
-export const PALETTE_COLORS = [
-  // Primary Vibrant Row
-  { id: 'c-red', name: 'Ruby Red', hex: '#FF4757', border: '#D63031' },
-  { id: 'c-coral', name: 'Coral Kiss', hex: '#FF7675', border: '#E17055' },
-  { id: 'c-orange', name: 'Sun Orange', hex: '#FFA502', border: '#E67E22' },
-  { id: 'c-gold', name: 'Lemon Gold', hex: '#FDCB6E', border: '#F39C12' },
-  { id: 'c-yellow', name: 'Banana Yellow', hex: '#FFEAA7', border: '#F1C40F' },
-  { id: 'c-mint', name: 'Sweet Mint', hex: '#55EFC4', border: '#00B894' },
-  { id: 'c-green', name: 'Jungle Green', hex: '#2ED573', border: '#10AC84' },
-  { id: 'c-cyan', name: 'Sky Cyan', hex: '#00CEC9', border: '#00A8FF' },
-  
-  // Secondary Playful Row
-  { id: 'c-blue', name: 'Ocean Blue', hex: '#74B9FF', border: '#0984E3' },
-  { id: 'c-royal', name: 'Deep Royal', hex: '#0984E3', border: '#2980B9' },
-  { id: 'c-purple', name: 'Coloroo Purple', hex: '#6C5CE7', border: '#5742CD' },
-  { id: 'c-lavender', name: 'Soft Lavender', hex: '#A29BFE', border: '#8C7AE6' },
-  { id: 'c-pink', name: 'Bubblegum Pink', hex: '#FD79A8', border: '#E84393' },
-  { id: 'c-magenta', name: 'Berry Magenta', hex: '#E84393', border: '#D81B60' },
-  { id: 'c-brown', name: 'Chocolate Brown', hex: '#B7791F', border: '#8C5209' },
-  { id: 'c-cream', name: 'Warm Cream', hex: '#FFF5EB', border: '#FBD38D' },
-  { id: 'c-white', name: 'Pure Cloud', hex: '#FFFFFF', border: '#CBD5E0' },
-  { id: 'c-black', name: 'Midnight Charcoal', hex: '#2D3436', border: '#1A202C' }
-];
-
-export const UNLOCKABLE_STICKERS: StickerItem[] = [
-  { id: 'st-star', name: 'Sparkle Star', emojiOrSvg: '⭐', category: 'sparkle', unlocked: true, requiredStars: 0 },
-  { id: 'st-crown', name: 'Golden Crown', emojiOrSvg: '👑', category: 'rewards', unlocked: true, requiredStars: 0 },
-  { id: 'st-rainbow', name: 'Magic Rainbow', emojiOrSvg: '🌈', category: 'cute', unlocked: true, requiredStars: 0 },
-  { id: 'st-heart', name: 'Love Heart', emojiOrSvg: '💖', category: 'cute', unlocked: true, requiredStars: 0 },
-  { id: 'st-palette', name: 'Painter Palette', emojiOrSvg: '🎨', category: 'rewards', unlocked: false, requiredStars: 3 },
-  { id: 'st-sun', name: 'Happy Sun', emojiOrSvg: '☀️', category: 'nature', unlocked: false, requiredStars: 6 },
-  { id: 'st-flower', name: 'Spring Flower', emojiOrSvg: '🌸', category: 'nature', unlocked: false, requiredStars: 9 },
-  { id: 'st-cupcake', name: 'Sweet Cupcake', emojiOrSvg: '🧁', category: 'cute', unlocked: false, requiredStars: 12 },
-  { id: 'st-butterfly', name: 'Baby Butterfly', emojiOrSvg: '🦋', category: 'nature', unlocked: false, requiredStars: 15 },
-  { id: 'st-medal', name: 'Gold Medal', emojiOrSvg: '🥇', category: 'rewards', unlocked: false, requiredStars: 20 },
-  { id: 'st-rocket', name: 'Space Rocket', emojiOrSvg: '🚀', category: 'cute', unlocked: false, requiredStars: 25 },
-  { id: 'st-gem', name: 'Shiny Crystal', emojiOrSvg: '💎', category: 'sparkle', unlocked: false, requiredStars: 30 }
 ];
