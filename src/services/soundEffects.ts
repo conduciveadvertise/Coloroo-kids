@@ -1,3 +1,5 @@
+import { TextToSpeech, QueueStrategy } from '@capacitor-community/text-to-speech';
+
 // Dual-Engine Audio & Human Voice System (Works 100% on Android WebView & Browsers)
 class SoundEngine {
   enabled: boolean = true;
@@ -168,7 +170,7 @@ class SoundEngine {
   }
 
   // Speak directly through Android/WebView TTS.
-  speak(text: string) {
+  async speak(text: string) {
     if (!this.enabled || !this.voiceEnabled) return;
 
     const cleanText = text
@@ -177,6 +179,22 @@ class SoundEngine {
       .trim();
 
     if (!cleanText) return;
+    // Native Android TTS — primary engine for the Capacitor APK.
+    try {
+      await TextToSpeech.stop();
+      await TextToSpeech.speak({
+        text: cleanText,
+        lang: 'en-US',
+        rate: 0.9,
+        pitch: 1.05,
+        volume: this.volume,
+        queueStrategy: QueueStrategy.Flush,
+      });
+      return;
+    } catch (error) {
+      console.warn('Native TTS failed, using Web Speech fallback:', error);
+    }
+
 
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
       return;
