@@ -27,7 +27,7 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_PROFILE: ChildProfile = {
-  name: 'Leo',
+  name: 'Explorer',
   age: 4,
   avatar: '🎨',
   stars: 35,
@@ -111,14 +111,28 @@ export const saveStoredArtworks = (artworks: SavedArtwork[]): void => {
   } catch {}
 };
 
+// --- ADVENTURE PROGRESS WITH AUTO-MIGRATION & UNLOCK DERIVATION ---
 export const getStoredAdventureProgress = (): AdventureProgress => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ADVENTURE);
     if (!raw) return DEFAULT_ADVENTURE;
     const parsed = JSON.parse(raw);
+    
+    const completedLevels = parsed.completedLevels || { forest: [] };
+    const forestLevels: number[] = Array.isArray(completedLevels.forest) ? completedLevels.forest : [];
+    
+    let unlockedWorlds: ('forest' | 'ocean' | 'space' | 'dino')[] = Array.isArray(parsed.unlockedWorlds) 
+      ? [...parsed.unlockedWorlds] 
+      : ['forest'];
+
+    // Auto-unlock Ocean if Forest Level 5 is completed or all 5 levels are finished
+    if ((forestLevels.includes(5) || forestLevels.length >= 5) && !unlockedWorlds.includes('ocean')) {
+      unlockedWorlds.push('ocean');
+    }
+
     return {
-      unlockedWorlds: Array.isArray(parsed.unlockedWorlds) ? parsed.unlockedWorlds : ['forest'],
-      completedLevels: parsed.completedLevels || { forest: [] },
+      unlockedWorlds,
+      completedLevels,
       currentLevel: typeof parsed.currentLevel === 'number' ? parsed.currentLevel : 1
     };
   } catch {
@@ -128,7 +142,18 @@ export const getStoredAdventureProgress = (): AdventureProgress => {
 
 export const saveStoredAdventureProgress = (progress: AdventureProgress): void => {
   try {
-    localStorage.setItem(STORAGE_KEYS.ADVENTURE, JSON.stringify(progress));
+    const forestLevels: number[] = progress.completedLevels?.forest || [];
+    let unlocked = [...(progress.unlockedWorlds || ['forest'])];
+    
+    if ((forestLevels.includes(5) || forestLevels.length >= 5) && !unlocked.includes('ocean')) {
+      unlocked.push('ocean');
+    }
+
+    const payload: AdventureProgress = {
+      ...progress,
+      unlockedWorlds: unlocked
+    };
+    localStorage.setItem(STORAGE_KEYS.ADVENTURE, JSON.stringify(payload));
   } catch {}
 };
 
@@ -228,9 +253,6 @@ export const saveStoredAchievements = (badges: AchievementBadge[]): void => {
   } catch {}
 };
 
-// ==========================================
-// ACTIVITY LOGGING (Real Learning Insights)
-// ==========================================
 export const getStoredActivityLogs = (): ParentActivityLog[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVITY_LOGS);
@@ -250,14 +272,11 @@ export const logActivityEvent = (entry: Omit<ParentActivityLog, 'id' | 'timestam
       date: getTodayDateString()
     };
     const logs = getStoredActivityLogs();
-    const updated = [newLog, ...logs].slice(0, 50); // Keep max 50 recent events
+    const updated = [newLog, ...logs].slice(0, 50);
     localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOGS, JSON.stringify(updated));
   } catch {}
 };
 
-// ==========================================
-// SCREEN TIME TRACKING
-// ==========================================
 export const getStoredScreenTimeRecords = (): ScreenTimeRecord[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SCREEN_TIME);
@@ -279,10 +298,9 @@ export const addActiveScreenTimeMinutes = (minutes = 1): void => {
       records.unshift({ date: today, activeMinutes: minutes });
     }
 
-    const trimmed = records.slice(0, 14); // Keep last 14 days
+    const trimmed = records.slice(0, 14);
     localStorage.setItem(STORAGE_KEYS.SCREEN_TIME, JSON.stringify(trimmed));
 
-    // Also sync to child profile todayMinutes
     const p = getStoredProfile();
     p.todayMinutes = records.find(r => r.date === today)?.activeMinutes || p.todayMinutes;
     saveStoredProfile(p);
@@ -304,9 +322,6 @@ export const getScreenTimeSummary = () => {
   return { todayMinutes, weekMinutes };
 };
 
-// ==========================================
-// RESET CHILD PROGRESS (CONFIRMED)
-// ==========================================
 export const resetAllChildProgress = (): void => {
   try {
     localStorage.removeItem(STORAGE_KEYS.PROFILE);

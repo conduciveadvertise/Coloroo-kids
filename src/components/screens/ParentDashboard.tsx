@@ -20,7 +20,8 @@ import {
   Calendar,
   Layers,
   Save,
-  Check
+  Check,
+  User
 } from 'lucide-react';
 import {
   ChildProfile,
@@ -69,7 +70,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('progress');
   const [currentSettings, setCurrentSettings] = useState<ParentSettings>(settings);
-  const [currentProfile, setCurrentProfile] = useState<ChildProfile>(profile);
+  const [childNameInput, setChildNameInput] = useState<string>(profile.name || 'Explorer');
+  const [nameError, setNameError] = useState<string | null>(null);
   const [newPin, setNewPin] = useState(settings.pinCode || '1234');
   const [saveToast, setSaveToast] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -78,7 +80,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   const logs = useMemo(() => getStoredActivityLogs(), []);
   const screenTime = useMemo(() => getScreenTimeSummary(), []);
 
-  // Calculate real progress percentages across 6 core categories
+  // Real progress percentages across 6 categories
   const categoryStats = useMemo(() => {
     const counts: Record<ActivityCategory, number> = {
       abc: 0,
@@ -112,7 +114,6 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     ];
   }, [logs, savedArtworks]);
 
-  // Derive Insights: Strong vs More Practice Areas
   const insights = useMemo(() => {
     const strong: string[] = [];
     const practice: string[] = [];
@@ -130,13 +131,50 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     return { strong, practice };
   }, [categoryStats]);
 
+  const handleSaveChildName = () => {
+    const trimmed = childNameInput.trim();
+    if (!trimmed) {
+      sound.playPop();
+      setNameError('Please enter a name.');
+      return;
+    }
+    if (trimmed.length > 30) {
+      sound.playPop();
+      setNameError('Name must be 30 characters or less.');
+      return;
+    }
+
+    setNameError(null);
+    const updatedProfile: ChildProfile = {
+      ...profile,
+      name: trimmed
+    };
+    onUpdateProfile(updatedProfile);
+    sound.playCorrect();
+    setSaveToast(true);
+    setTimeout(() => setSaveToast(false), 2000);
+  };
+
   const handleSaveAllSettings = () => {
-    const updated: ParentSettings = {
+    const trimmed = childNameInput.trim();
+    if (!trimmed) {
+      sound.playPop();
+      setNameError('Please enter a name.');
+      return;
+    }
+
+    setNameError(null);
+    const updatedProfile: ChildProfile = {
+      ...profile,
+      name: trimmed
+    };
+    const updatedSettings: ParentSettings = {
       ...currentSettings,
       pinCode: newPin.length === 4 ? newPin : currentSettings.pinCode
     };
-    onUpdateSettings(updated);
-    onUpdateProfile(currentProfile);
+
+    onUpdateProfile(updatedProfile);
+    onUpdateSettings(updatedSettings);
     sound.playCorrect();
     setSaveToast(true);
     setTimeout(() => setSaveToast(false), 2000);
@@ -197,7 +235,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               { id: 'activities' as TabType, label: '🎮 Activity Log', icon: Layers },
               { id: 'screen-time' as TabType, label: '⏱️ Time & Limits', icon: Clock },
               { id: 'rewards' as TabType, label: '🏆 Rewards & Buddy', icon: Trophy },
-              { id: 'settings' as TabType, label: '⚙️ Settings & Safety', icon: Settings }
+              { id: 'settings' as TabType, label: '⚙️ Settings & Profile', icon: Settings }
             ].map(t => {
               const Icon = t.icon;
               const isSelected = activeTab === t.id;
@@ -219,8 +257,10 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           </div>
 
           <div className="bg-purple-50/70 p-2.5 rounded-2xl border border-purple-100 text-center">
-            <span className="text-[9px] font-black text-purple-950 block">Child Profile</span>
-            <span className="text-xs font-black text-purple-700 mt-0.5 block">{profile.name} ({profile.age} yrs)</span>
+            <span className="text-[9px] font-black text-purple-950 uppercase block">Active Child Profile</span>
+            <span className="text-xs font-black text-purple-700 mt-0.5 block truncate">
+              {profile.name || 'Explorer'}
+            </span>
             <span className="text-[8px] text-slate-400 font-bold block mt-0.5">100% Local & Kid-Safe</span>
           </div>
         </div>
@@ -396,7 +436,6 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           {activeTab === 'rewards' && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2.5">
-                {/* Buddy Info */}
                 <div className="bg-pink-50 p-3 rounded-2xl border border-pink-200 flex items-center gap-3">
                   <span className="text-4xl">{buddyDef.emoji}</span>
                   <div>
@@ -406,7 +445,6 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Streak & Stars */}
                 <div className="bg-amber-50 p-3 rounded-2xl border border-amber-200 flex items-center justify-around">
                   <div className="text-center">
                     <span className="text-[9px] font-black text-amber-800 uppercase block">Current Streak</span>
@@ -419,7 +457,6 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Achievement Badges Overview */}
               <div>
                 <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider mb-1.5">
                   Unlocked Badges & Milestones
@@ -444,9 +481,49 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             </div>
           )}
 
-          {/* ================= TAB 5: SETTINGS & SAFETY ================= */}
+          {/* ================= TAB 5: SETTINGS & CHILD PROFILE ================= */}
           {activeTab === 'settings' && (
             <div className="space-y-2.5">
+              {/* Child Profile Setting Section */}
+              <div className="bg-purple-50/80 p-3 rounded-2xl border border-purple-200">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <User className="w-4 h-4 text-purple-700" />
+                  <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">
+                    👤 Child Profile
+                  </h4>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                  <div className="flex-1 w-full">
+                    <label className="text-[10px] font-bold text-slate-600 block mb-0.5">
+                      Child's Name
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={30}
+                      value={childNameInput}
+                      onChange={(e) => {
+                        setChildNameInput(e.target.value);
+                        if (nameError) setNameError(null);
+                      }}
+                      placeholder="Enter child's name"
+                      className="w-full bg-white border border-purple-200 rounded-xl px-3 py-1.5 text-xs font-black text-slate-900 focus:outline-none focus:border-purple-600 shadow-sm"
+                    />
+                    {nameError && (
+                      <span className="text-[9px] font-bold text-rose-500 mt-0.5 block">
+                        {nameError}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleSaveChildName}
+                    className="w-full sm:w-auto mt-2 sm:mt-4 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow cursor-pointer active:scale-95 transition-all"
+                  >
+                    Save Name
+                  </button>
+                </div>
+              </div>
+
+              {/* Audio & Narration */}
               <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-200 space-y-2">
                 <h4 className="text-xs font-black text-purple-950 uppercase tracking-wider">Audio & Narration</h4>
                 <label className="flex items-center justify-between text-xs font-bold text-slate-800 cursor-pointer">

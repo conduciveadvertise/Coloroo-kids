@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronLeft,
@@ -10,7 +10,10 @@ import {
   Trophy,
   Play,
   RotateCcw,
-  Compass
+  Compass,
+  Waves,
+  Rocket,
+  Flame
 } from 'lucide-react';
 import { WorldId, AdventureProgress } from '../../types';
 import { WORLDS_INFO, FOREST_LEVELS, AdventureLevelDef } from '../../data/adventureData';
@@ -35,23 +38,30 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
   const [activeLevel, setActiveLevel] = useState<AdventureLevelDef | null>(null);
 
   // Level Play State
-  const [currentStep, setCurrentStep] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<any>(null);
   const [levelSuccess, setLevelSuccess] = useState(false);
-  const [worldUnlockedNotice, setWorldUnlockedNotice] = useState<string | null>(null);
-
-  // Boss Trial State (Level 5)
   const [bossStep, setBossStep] = useState(0);
 
   useEffect(() => {
     saveStoredAdventureProgress(progress);
   }, [progress]);
 
-  useEffect(() => {
-    sound.speak("Welcome to Adventure World! Choose your quest!");
-  }, []);
+  // Derived Single Source of Truth for Completed Levels
+  const completedForest = useMemo(() => {
+    return progress.completedLevels['forest'] || [];
+  }, [progress.completedLevels]);
 
-  const completedForest = progress.completedLevels['forest'] || [];
+  const isForestComplete = useMemo(() => {
+    return completedForest.includes(5) || completedForest.length >= 5;
+  }, [completedForest]);
+
+  // Dynamic World Unlock Evaluator
+  const isWorldUnlocked = (worldId: WorldId): boolean => {
+    if (worldId === 'forest') return true;
+    if (worldId === 'ocean') return isForestComplete || progress.unlockedWorlds.includes('ocean');
+    if (worldId === 'space') return progress.unlockedWorlds.includes('space');
+    if (worldId === 'dino') return progress.unlockedWorlds.includes('dino');
+    return false;
+  };
 
   const handleSelectLevel = (level: AdventureLevelDef) => {
     const isCompleted = completedForest.includes(level.id);
@@ -66,9 +76,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     sound.playPop();
     sound.speak(`Level ${level.id}! ${level.title}!`);
     setActiveLevel(level);
-    setCurrentStep(0);
     setBossStep(0);
-    setSelectedOption(null);
     setLevelSuccess(false);
   };
 
@@ -79,31 +87,33 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     try { confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } }); } catch {}
 
     const newCompleted = Array.from(new Set([...completedForest, levelId]));
-    const isWorldFinished = newCompleted.length >= 5;
+    const isNowForestFinished = newCompleted.includes(5) || newCompleted.length >= 5;
 
     let updatedWorlds = progress.unlockedWorlds;
-    if (isWorldFinished && !progress.unlockedWorlds.includes('ocean')) {
-      updatedWorlds = [...progress.unlockedWorlds, 'ocean'];
-      setWorldUnlockedNotice('🌊 Ocean World Unlocked!');
+    if (isNowForestFinished && !updatedWorlds.includes('ocean')) {
+      updatedWorlds = [...updatedWorlds, 'ocean'];
       sound.speak("World Complete! You unlocked Ocean World!");
     } else {
       sound.speak(`Level complete! You earned 10 stars!`);
     }
 
-    setProgress(prev => ({
-      ...prev,
+    const nextProgress: AdventureProgress = {
+      ...progress,
       unlockedWorlds: updatedWorlds,
       completedLevels: {
-        ...prev.completedLevels,
+        ...progress.completedLevels,
         forest: newCompleted
       },
       currentLevel: Math.min(levelId + 1, 5)
-    }));
+    };
+
+    setProgress(nextProgress);
+    saveStoredAdventureProgress(nextProgress);
   };
 
-  // Render Level Gameplay Sandbox
+  // Level Gameplay Sandbox
   const renderLevelContent = (lvl: AdventureLevelDef) => {
-    // Level 1: ABC (Find B)
+    // Level 1: ABC
     if (lvl.type === 'abc') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -145,7 +155,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       );
     }
 
-    // Level 2: Color (Find Green)
+    // Level 2: Color
     if (lvl.type === 'color') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -188,7 +198,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       );
     }
 
-    // Level 3: Counting (Count 3 Apples)
+    // Level 3: Math
     if (lvl.type === 'math') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -233,7 +243,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       );
     }
 
-    // Level 4: Memory (Match Bunny Pair)
+    // Level 4: Memory
     if (lvl.type === 'memory') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -275,7 +285,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       );
     }
 
-    // Level 5: Boss Forest Challenge (5 Multi Questions)
+    // Level 5: Boss Forest Challenge
     if (lvl.type === 'boss') {
       const bossQuestions = [
         {
@@ -392,7 +402,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
         {/* World Selection Tabs */}
         <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
           {WORLDS_INFO.map(w => {
-            const isUnlocked = progress.unlockedWorlds.includes(w.id);
+            const isUnlocked = isWorldUnlocked(w.id);
             const isSelected = selectedWorld === w.id;
             return (
               <button
@@ -405,28 +415,29 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                   }
                   setSelectedWorld(w.id);
                   setActiveLevel(null);
+                  sound.speak(`${w.name}!`);
                 }}
                 className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-black flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap ${
                   isSelected
                     ? 'bg-emerald-500 text-white shadow-md'
                     : isUnlocked
-                    ? 'text-slate-700 hover:bg-purple-50'
+                    ? 'text-slate-800 hover:bg-purple-50'
                     : 'text-slate-400 opacity-60'
                 }`}
               >
                 <span>{w.themeEmoji}</span>
                 <span>{w.name.split(' ')[0]}</span>
-                {!isUnlocked && <Lock className="w-2.5 h-2.5 ml-0.5" />}
+                {!isUnlocked && <Lock className="w-2.5 h-2.5 ml-0.5 text-slate-400" />}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* Main Map / Gameplay Arena */}
+      {/* Main Stage Viewport */}
       <div className="flex-1 bg-white rounded-[26px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between min-h-0 relative overflow-hidden">
         
-        {/* VIEW 1: ACTIVE LEVEL MODAL / GAME */}
+        {/* VIEW 1: ACTIVE LEVEL MODAL */}
         {activeLevel ? (
           <div className="w-full h-full flex flex-col justify-between relative">
             <div className="flex items-center justify-between pb-1 border-b border-purple-100">
@@ -450,7 +461,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </button>
             </div>
 
-            {/* Render Sandbox */}
             <div className="flex-1 min-h-0 py-2">
               {renderLevelContent(activeLevel)}
             </div>
@@ -504,7 +514,9 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                   🌳 Coloroo Forest Path
                 </h2>
                 <p className="text-[10px] font-bold text-emerald-700">
-                  Tap your current level to begin the adventure!
+                  {isForestComplete 
+                    ? '🎉 Forest Completed! Ocean World is now UNLOCKED!' 
+                    : 'Tap your current level to begin the adventure!'}
                 </p>
               </div>
               <span className="text-xs font-black text-purple-900 bg-purple-50 px-3 py-1 rounded-xl border border-purple-100">
@@ -514,7 +526,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
 
             {/* Connected Level Nodes Path */}
             <div className="flex-1 flex items-center justify-between px-3 sm:px-6 relative my-1">
-              {/* Connecting Path Track */}
               <div className="absolute left-10 right-10 h-3 bg-emerald-100 rounded-full -z-0" />
               <div
                 className="absolute left-10 h-3 bg-emerald-400 rounded-full -z-0 transition-all duration-500"
@@ -564,12 +575,57 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
 
             <div className="text-center">
               <span className="text-[10px] font-bold text-slate-400">
-                Finish all 5 Forest levels to unlock Ocean World!
+                {isForestComplete 
+                  ? '⭐ Ocean World unlocked! Tap the Ocean tab above to visit!' 
+                  : 'Finish all 5 Forest levels to unlock Ocean World!'}
               </span>
             </div>
           </div>
+        ) : isWorldUnlocked(selectedWorld) ? (
+          /* VIEW 3: UNLOCKED WORLD VIEWPORT (e.g. Ocean World) */
+          <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
+            {(() => {
+              const currentWorldInfo = WORLDS_INFO.find(w => w.id === selectedWorld)!;
+              return (
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="max-w-md flex flex-col items-center"
+                >
+                  <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-cyan-400 to-blue-600 border-4 border-white shadow-xl flex items-center justify-center text-6xl mb-3 animate-bounce-gentle">
+                    {currentWorldInfo.themeEmoji}
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 text-xs font-black text-emerald-700 mb-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>WORLD UNLOCKED</span>
+                  </div>
+                  <h2 className="text-2xl font-black text-purple-950 font-['Fredoka']">
+                    {currentWorldInfo.name}
+                  </h2>
+                  <p className="text-xs font-bold text-slate-500 mt-1 max-w-xs">
+                    {currentWorldInfo.tagline}
+                  </p>
+
+                  <div className="bg-blue-50 border border-blue-200 px-5 py-2.5 rounded-2xl my-3 text-xs font-black text-blue-900 shadow-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    <span>Ocean World quests are ready for exploration!</span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      sound.playPop();
+                      sound.speak("Ocean quests coming up in next adventure chapter!");
+                    }}
+                    className="px-8 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:brightness-105 text-white font-black text-xs sm:text-sm shadow-md cursor-pointer border-2 border-white active:scale-95 transition-all"
+                  >
+                    Start Ocean Adventure 🌊
+                  </button>
+                </motion.div>
+              );
+            })()}
+          </div>
         ) : (
-          /* VIEW 3: LOCKED WORLD PREVIEWS (Ocean, Space, Dino) */
+          /* VIEW 4: LOCKED WORLD PREVIEWS (Space, Dino) */
           <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
             {(() => {
               const currentWorldInfo = WORLDS_INFO.find(w => w.id === selectedWorld)!;
