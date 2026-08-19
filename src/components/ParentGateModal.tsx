@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { X, ShieldCheck, Delete, Check } from 'lucide-react';
+import { X, ShieldCheck, Delete, Check, KeyRound } from 'lucide-react';
 import { sound } from '../services/soundEffects';
 
 interface ParentGateModalProps {
@@ -13,10 +13,12 @@ interface ParentGateModalProps {
 export const ParentGateModal: React.FC<ParentGateModalProps> = ({
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  requiredPin = '1234'
 }) => {
-  const [num1, setNum1] = useState(6);
-  const [num2, setNum2] = useState(4);
+  const [mode, setMode] = useState<'math' | 'pin'>('math');
+  const [num1, setNum1] = useState(7);
+  const [num2, setNum2] = useState(8);
   const [input, setInput] = useState('');
   const [hasError, setHasError] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -25,25 +27,28 @@ export const ParentGateModal: React.FC<ParentGateModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const n1 = Math.floor(Math.random() * 5) + 4;
-      const n2 = Math.floor(Math.random() * 5) + 2;
+      const n1 = Math.floor(Math.random() * 6) + 5;
+      const n2 = Math.floor(Math.random() * 5) + 4;
       setNum1(n1);
       setNum2(n2);
       setInput('');
       setHasError(false);
       setIsSuccess(false);
     }
-  }, [isOpen]);
+  }, [isOpen, mode]);
 
   if (!isOpen) return null;
 
   const handleVerify = (val: string) => {
-    if (parseInt(val, 10) === targetAnswer) {
+    const isMathCorrect = mode === 'math' && parseInt(val, 10) === targetAnswer;
+    const isPinCorrect = mode === 'pin' && val === requiredPin;
+
+    if (isMathCorrect || isPinCorrect) {
       setIsSuccess(true);
       sound.playCorrect();
       setTimeout(() => {
         onSuccess();
-      }, 150);
+      }, 200);
     } else {
       setHasError(true);
       sound.playPop();
@@ -69,10 +74,11 @@ export const ParentGateModal: React.FC<ParentGateModalProps> = ({
     }
 
     const nextInput = input + val;
-    if (nextInput.length > 2) return;
-    setInput(nextInput);
+    const maxLen = mode === 'math' ? targetAnswer.toString().length : 4;
+    if (nextInput.length > maxLen) return;
 
-    if (nextInput.length >= targetAnswer.toString().length) {
+    setInput(nextInput);
+    if (nextInput.length === maxLen) {
       handleVerify(nextInput);
     }
   };
@@ -88,10 +94,7 @@ export const ParentGateModal: React.FC<ParentGateModalProps> = ({
         className="bg-white rounded-[28px] p-3.5 sm:p-4 w-full max-w-md shadow-2xl border-4 border-purple-200 border-b-[6px] border-b-purple-500 relative flex flex-row items-center gap-3.5"
       >
         <button
-          onClick={() => {
-            sound.playPop();
-            onClose();
-          }}
+          onClick={() => { sound.playPop(); onClose(); }}
           className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-purple-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-colors z-20 cursor-pointer"
         >
           <X className="w-4 h-4" />
@@ -103,10 +106,10 @@ export const ParentGateModal: React.FC<ParentGateModalProps> = ({
               <ShieldCheck className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-black text-purple-950 font-['Fredoka'] leading-tight">
-              Grown-Ups Only
+              Parents Only
             </h3>
-            <p className="text-[9px] text-slate-500 font-medium max-w-[140px] leading-tight mt-0.5">
-              Please solve this math question to enter the Parent Zone.
+            <p className="text-[9px] text-slate-500 font-medium max-w-[150px] leading-tight mt-0.5">
+              {mode === 'math' ? 'Solve the math problem to unlock Parents Zone.' : 'Enter your 4-digit Parent PIN.'}
             </p>
           </div>
 
@@ -118,22 +121,28 @@ export const ParentGateModal: React.FC<ParentGateModalProps> = ({
               : 'bg-purple-50/70 border-purple-200 text-purple-950'
           }`}>
             <span className="text-[8px] font-black uppercase text-purple-600 tracking-wider block">
-              PARENT VERIFICATION
+              {mode === 'math' ? 'PARENT VERIFICATION' : 'ENTER 4-DIGIT PIN'}
             </span>
             <div className="text-xl sm:text-2xl font-black font-['Fredoka'] tracking-wider mt-0.5">
-              {num1} + {num2} = <span className="text-purple-600 underline underline-offset-4">{input || '?'}</span>
+              {mode === 'math' ? (
+                <>
+                  {num1} + {num2} = <span className="text-purple-600 underline underline-offset-4">{input || '?'}</span>
+                </>
+              ) : (
+                <span className="tracking-[0.3em] text-purple-700">{input ? '••••'.slice(0, input.length) : '••••'}</span>
+              )}
             </div>
           </div>
 
-          {isSuccess ? (
-            <span className="text-[10px] font-black text-emerald-600 flex items-center gap-1 leading-none">
-              <Check className="w-3.5 h-3.5 stroke-[3]" /> Access Granted!
-            </span>
-          ) : hasError ? (
-            <span className="text-[9px] font-black text-rose-500 leading-none">Incorrect, retry!</span>
-          ) : (
-            <span className="text-[8px] text-slate-400 font-bold leading-none">Tap numbers on keypad</span>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { sound.playPop(); setMode(m => m === 'math' ? 'pin' : 'math'); }}
+              className="text-[9px] font-black text-purple-600 hover:underline flex items-center gap-0.5 cursor-pointer"
+            >
+              <KeyRound className="w-3 h-3" />
+              <span>{mode === 'math' ? 'Use PIN Code' : 'Use Math Challenge'}</span>
+            </button>
+          </div>
         </div>
 
         <div className="w-44 grid grid-cols-3 gap-1.5 shrink-0 bg-slate-50 p-2 rounded-2xl border border-purple-100">
