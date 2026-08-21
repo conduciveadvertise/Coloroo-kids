@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Play, Flame, Star, ShieldCheck, Heart } from 'lucide-react';
-import { ScreenType, ChildProfile, BuddyState, StreakData } from '../../types';
-import { COLORING_PAGES } from '../../data/coloringPages';
-import { BUDDY_LIST } from '../../data/buddyAndMissionsData';
-import { sound } from '../../services/soundEffects';
+import {
+  Sparkles, motion } from 'motion/react';
+import {
+  Sparkles, Play, Flame, Star, ShieldCheck, Heart } from 'lucide-react';
+import {
+  Sparkles, ScreenType, ChildProfile, BuddyState, StreakData } from '../../types';
+import {
+  Sparkles, COLORING_PAGES } from '../../data/coloringPages';
+import {
+  Sparkles, BUDDY_LIST } from '../../data/buddyAndMissionsData';
+import {
+  Sparkles, sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
 
 interface HomeScreenProps {
@@ -47,6 +53,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const cards = [
+    {
+      id: 'ai-buddy',
+      type: 'screen' as const,
+      tag: '🤖 AI BUDDY',
+      badge: 'Live AI',
+      title: 'AI Buddy',
+      desc: 'Talk to Buddy • Ask anything!',
+      iconEmoji: '🤖',
+      secondaryEmoji: '✨',
+      btnText: 'Talk to Buddy',
+      borderBottom: 'border-b-[#5F27CD]',
+      badgeBg: 'bg-[#5F27CD]',
+      bgGradient: 'from-[#a29bfe] via-[#6c5ce7] to-[#5f27cd]',
+      btnBg: 'bg-[#5F27CD] hover:bg-[#341f97]'
+    },
     {
       id: 'coloring',
       type: 'screen' as const,
@@ -208,7 +229,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 sound.playPop();
                 if (card.type === 'parent') {
                   onOpenParentGate();
-                } else if (card.id === 'coloring') {
+                } else if (card.id === 'ai-buddy') {
+              onNavigate('ai-buddy');
+            } else if (card.id === 'coloring') {
                   onSelectColoringPage(featuredPage.id);
                 } else {
                   onNavigate(card.id as ScreenType);
