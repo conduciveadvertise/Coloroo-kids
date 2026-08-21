@@ -10,7 +10,7 @@ import {
   ArrowLeftRight,
   BookOpen,
   Sparkles,
-  Play
+  ArrowRight
 } from 'lucide-react';
 import { sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
@@ -40,6 +40,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
   // ==========================================
   const [baQuestion, setBaQuestion] = useState<BeforeAfterQuestion | null>(null);
   const [baWrongVal, setBaWrongVal] = useState<number | null>(null);
+  const [baAnswered, setBaAnswered] = useState<boolean>(false);
   const lastBaKeyRef = useRef<string>('');
 
   const generateBeforeAfter = (lastK: string): BeforeAfterQuestion => {
@@ -100,11 +101,12 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
     lastBaKeyRef.current = q.qKey;
     setBaQuestion(q);
     setBaWrongVal(null);
+    setBaAnswered(false);
   };
 
   // Speak question automatically when new Before & After question loads
   useEffect(() => {
-    if (activeMathActivity === 'before-after' && baQuestion) {
+    if (activeMathActivity === 'before-after' && baQuestion && !baAnswered) {
       sound.speak(`What comes ${baQuestion.type} ${baQuestion.number}?`);
     }
   }, [baQuestion?.qKey, activeMathActivity]);
@@ -115,13 +117,14 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
   };
 
   const handleBAGuess = (val: number) => {
-    if (!baQuestion) return;
+    if (!baQuestion || baAnswered) return;
     if (val === baQuestion.correctAnswer) {
+      setBaAnswered(true);
       sound.playCorrect();
       sound.speak("Great job!");
       try { confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } }); } catch {}
       onAddStars(10);
-      setTimeout(() => loadNextBeforeAfterQuestion(), 1100);
+      setTimeout(() => loadNextBeforeAfterQuestion(), 1200);
     } else {
       sound.playPop();
       setBaWrongVal(val);
@@ -190,7 +193,6 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
     }
   };
 
-  // Launch Activity
   const openMathActivity = (act: MathActivity) => {
     sound.playPop();
     setActiveMathActivity(act);
@@ -229,7 +231,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </h1>
         </div>
 
-        {/* Category Tabs (Maths vs Phonics) when on menu */}
+        {/* Category Tabs / Repeat Voice */}
         {!activeMathActivity ? (
           <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
             <button
@@ -271,9 +273,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
       {/* Main Learning Arena */}
       <div className="flex-1 bg-white rounded-[26px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between relative overflow-hidden min-h-0">
         
-        {/* ========================================================================= */}
-        {/* VIEW 1: MATHS ACTIVITIES MENU (Featuring Clearly Visible Before & After) */}
-        {/* ========================================================================= */}
+        {/* VIEW 1: MATHS MENU */}
         {!activeMathActivity && activeCategory === 'math' && (
           <div className="w-full h-full flex flex-col justify-between p-1">
             <div className="text-center py-0.5">
@@ -283,10 +283,8 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
               <p className="text-[10px] sm:text-xs font-bold text-slate-400">Choose a fun maths game to play & learn!</p>
             </div>
 
-            {/* 5 Prominent Maths Activities Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 flex-1 items-stretch my-1">
-              
-              {/* CARD 1: BEFORE & AFTER (1-50) */}
+              {/* BEFORE & AFTER */}
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.96 }}
@@ -312,7 +310,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                 </button>
               </motion.div>
 
-              {/* CARD 2: NUMBERS 1-50 EXPLORER */}
+              {/* NUMBERS 1-50 */}
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.96 }}
@@ -334,7 +332,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                 </button>
               </motion.div>
 
-              {/* CARD 3: COUNTING */}
+              {/* COUNTING */}
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.96 }}
@@ -356,7 +354,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                 </button>
               </motion.div>
 
-              {/* CARD 4: ADDITION */}
+              {/* ADDITION */}
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.96 }}
@@ -378,7 +376,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                 </button>
               </motion.div>
 
-              {/* CARD 5: SUBTRACTION */}
+              {/* SUBTRACTION */}
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.96 }}
@@ -399,7 +397,6 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                   Minus Play ▶
                 </button>
               </motion.div>
-
             </div>
 
             <div className="text-center">
@@ -409,43 +406,69 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
         )}
 
         {/* ========================================================================= */}
-        {/* VIEW 2: BEFORE & AFTER NUMBERS GAMEPLAY (1–50) */}
+        {/* VIEW 2: BEFORE & AFTER VISUAL SEQUENCE FIX */}
         {/* ========================================================================= */}
         {activeMathActivity === 'before-after' && baQuestion && (
           <div className="w-full h-full flex flex-col items-center justify-between py-1">
             
             {/* Question Banner */}
             <div className="bg-purple-50 border-2 border-purple-200 px-6 py-1.5 rounded-2xl shadow-sm text-center">
-              <span className="text-xs font-bold text-slate-500">Question: </span>
+              <span className="text-xs font-bold text-slate-500">Instruction: </span>
               <span className="text-base sm:text-lg font-black text-purple-950 font-sans uppercase">
                 What comes <span className="text-purple-600 underline decoration-wavy decoration-amber-400">{baQuestion.type}</span> {baQuestion.number}?
               </span>
             </div>
 
-            {/* Large Visual Display: [ ? ] 27 or 34 [ ? ] */}
-            <div className="flex items-center justify-center gap-4 my-2">
+            {/* Sequence Box (Always clearly visible with high contrast) */}
+            <div className="flex items-center justify-center gap-3 sm:gap-4 my-1.5">
               {baQuestion.type === 'before' ? (
                 <>
-                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-amber-50 border-4 border-dashed border-amber-400 rounded-3xl flex items-center justify-center shadow-inner animate-pulse">
-                    <span className="text-4xl sm:text-5xl font-black text-amber-500">?</span>
+                  {/* Left Box: ? or correct answer */}
+                  <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-3xl border-4 flex items-center justify-center shadow-lg transition-all ${
+                    baAnswered 
+                      ? 'bg-emerald-500 border-white text-white scale-105' 
+                      : 'bg-amber-100 border-amber-400 text-amber-900'
+                  }`}>
+                    <span className="text-4xl sm:text-5xl font-black font-sans">
+                      {baAnswered ? baQuestion.correctAnswer : '?'}
+                    </span>
                   </div>
-                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-gradient-to-br from-indigo-500 to-purple-600 border-4 border-white rounded-3xl flex items-center justify-center shadow-lg">
-                    <span className="text-4xl sm:text-5xl font-black text-white font-sans">{baQuestion.number}</span>
+
+                  <span className="text-2xl sm:text-3xl font-black text-purple-400">➔</span>
+
+                  {/* Right Box: Given Number */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-indigo-500 to-purple-600 border-4 border-white text-white rounded-3xl flex items-center justify-center shadow-lg">
+                    <span className="text-4xl sm:text-5xl font-black font-sans">
+                      {baQuestion.number}
+                    </span>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-gradient-to-br from-indigo-500 to-purple-600 border-4 border-white rounded-3xl flex items-center justify-center shadow-lg">
-                    <span className="text-4xl sm:text-5xl font-black text-white font-sans">{baQuestion.number}</span>
+                  {/* Left Box: Given Number */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-indigo-500 to-purple-600 border-4 border-white text-white rounded-3xl flex items-center justify-center shadow-lg">
+                    <span className="text-4xl sm:text-5xl font-black font-sans">
+                      {baQuestion.number}
+                    </span>
                   </div>
-                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-amber-50 border-4 border-dashed border-amber-400 rounded-3xl flex items-center justify-center shadow-inner animate-pulse">
-                    <span className="text-4xl sm:text-5xl font-black text-amber-500">?</span>
+
+                  <span className="text-2xl sm:text-3xl font-black text-purple-400">➔</span>
+
+                  {/* Right Box: ? or correct answer */}
+                  <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-3xl border-4 flex items-center justify-center shadow-lg transition-all ${
+                    baAnswered 
+                      ? 'bg-emerald-500 border-white text-white scale-105' 
+                      : 'bg-amber-100 border-amber-400 text-amber-900'
+                  }`}>
+                    <span className="text-4xl sm:text-5xl font-black font-sans">
+                      {baAnswered ? baQuestion.correctAnswer : '?'}
+                    </span>
                   </div>
                 </>
               )}
             </div>
 
-            {/* 4 Large Touch Choice Buttons */}
+            {/* 4 Large Choice Buttons */}
             <div className="flex items-center gap-3 my-1">
               {baQuestion.options.map(opt => (
                 <motion.button
@@ -453,9 +476,11 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
                   whileHover={{ scale: 1.08 }}
                   whileTap={{ scale: 0.92 }}
                   onClick={() => handleBAGuess(opt)}
-                  className={`w-18 h-18 sm:w-22 sm:h-22 rounded-3xl border-4 border-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg cursor-pointer transition-all ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-3xl border-4 border-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg cursor-pointer transition-all ${
                     baWrongVal === opt
                       ? 'bg-rose-500 text-white animate-shake ring-4 ring-rose-300'
+                      : baAnswered && opt === baQuestion.correctAnswer
+                      ? 'bg-emerald-500 text-white scale-105'
                       : 'bg-amber-400 hover:bg-amber-500 text-slate-900 font-sans'
                   }`}
                 >
@@ -464,13 +489,13 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
               ))}
             </div>
 
-            <span className="text-[10px] font-bold text-slate-400">Tap the correct number that comes {baQuestion.type}!</span>
+            <span className="text-[10px] font-bold text-slate-400">
+              Tap the correct number that comes {baQuestion.type} {baQuestion.number}!
+            </span>
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* VIEW 3: NUMBERS 1-50 PRESERVED EXPLORER GRID */}
-        {/* ========================================================================= */}
+        {/* VIEW 3: NUMBERS 1-50 EXPLORER */}
         {activeMathActivity === 'numbers-50' && (
           <div className="w-full h-full flex flex-col justify-between p-1">
             <div className="flex items-center justify-between px-2">
@@ -502,9 +527,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* VIEW 4: PRESERVED ADDITION / SUBTRACTION / COUNTING GAMES */}
-        {/* ========================================================================= */}
+        {/* VIEW 4: GENERIC MATHS */}
         {(activeMathActivity === 'counting' || activeMathActivity === 'addition' || activeMathActivity === 'subtraction') && genericMathQ && (
           <div className="w-full h-full flex flex-col items-center justify-between py-2">
             <div className="bg-purple-50 border-2 border-purple-200 px-8 py-2 rounded-2xl shadow-sm text-center">
@@ -541,9 +564,7 @@ export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddSta
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* VIEW 5: PHONICS TOPIC */}
-        {/* ========================================================================= */}
         {!activeMathActivity && activeCategory === 'phonics' && (
           <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
             <span className="text-6xl mb-2 animate-bounce-gentle">🔤</span>
