@@ -1,16 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import {
   ChevronLeft,
   Mic,
   MicOff,
-  Sparkles,
-  Volume2,
-  AlertCircle,
-  RotateCcw,
   Bot,
-  User,
-  Heart
+  RotateCcw
 } from 'lucide-react';
 import {
   GeminiLiveSession,
@@ -39,6 +34,9 @@ export const AIBuddyScreen: React.FC<AIBuddyScreenProps> = ({ onBack }) => {
     session.onStateChange = (st, msg) => {
       setState(st);
       if (msg) setStatusMessage(msg);
+      if (st === 'ready' || st === 'error' || st === 'idle') {
+        setIsRecording(false);
+      }
     };
 
     session.onTranscript = (t) => {
@@ -47,6 +45,7 @@ export const AIBuddyScreen: React.FC<AIBuddyScreenProps> = ({ onBack }) => {
 
     session.onError = (err) => {
       setStatusMessage(err);
+      setIsRecording(false);
     };
 
     session.connect();
@@ -198,7 +197,7 @@ export const AIBuddyScreen: React.FC<AIBuddyScreenProps> = ({ onBack }) => {
               }`}
             >
               {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              <span>{isRecording ? 'Stop & Listen' : 'Tap to Talk 🎤'}</span>
+              <span>{isRecording ? 'Done Speaking (Send)' : 'Tap to Talk 🎤'}</span>
             </motion.button>
           </div>
         </div>

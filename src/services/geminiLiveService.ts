@@ -1,6 +1,6 @@
 /**
  * Gemini Live API WebSocket Client for Coloroo AI Buddy
- * Connects securely using ephemeral tokens from the backend.
+ * Fully instrumented for debugging connection, audio capture, and response playback.
  */
 
 export interface LiveMessageTranscript {
@@ -26,6 +26,7 @@ export class GeminiLiveSession {
   private source: MediaStreamAudioSourceNode | null = null;
   private scheduledAudioSources: AudioBufferSourceNode[] = [];
   private nextPlayTime = 0;
+  private isConnected = false;
 
   public onStateChange: ((state: LiveConnectionState, statusMsg?: string) => void) | null = null;
   public onTranscript: ((msg: LiveMessageTranscript) => void) | null = null;
@@ -34,41 +35,44 @@ export class GeminiLiveSession {
   private systemInstruction = `
 You are Coloroo Buddy, a friendly educational AI companion for young children.
 Speak in simple Hinglish (a natural, friendly mix of Hindi and English).
-Use short sentences.
-Be encouraging and patient.
-Explain educational concepts (colors, animals, numbers, space, dinosaurs, nature) in a child-friendly way.
-Never shame the child.
-Never use scary language.
-Do not ask for personal information (no full name, address, phone number, school, passwords, locations, or photos).
-If asked an inappropriate or adult question, respond briefly and safely, then redirect to a fun educational topic.
-Keep responses concise (1 to 3 short sentences).
-Use cheerful tone with simple words.
+Use short sentences (1 to 3 sentences maximum).
+Be encouraging, cheerful, and patient.
+Explain concepts like colors, animals, numbers, space, and dinosaurs in an easy way.
+Never ask for private or personal info.
+If an inappropriate question is asked, respond safely and redirect to a fun learning topic.
 `;
 
   public async connect(): Promise<void> {
+    console.log('[AIBuddy] Connecting session requested...');
     this.setState('connecting', 'Buddy is getting ready...');
 
     try {
       const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids-production.up.railway.app';
-      const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
+      console.log(`[AIBuddy] Requesting Railway token from: ${backendUrl}/api/ai-buddy/token`);
       
+      const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
       if (!res.ok) {
-        const errorPayload = await res.json().catch(() => ({}));
-        throw new Error(errorPayload.error || 'AI Buddy server is not ready.');
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server returned ${res.status}`);
       }
 
       const data = await res.json();
       const ephemeralToken = data.token;
       const model = data.model || 'gemini-3.1-flash-live-preview';
+      console.log('[AIBuddy] Railway token received successfully.');
 
       if (!ephemeralToken) {
-        throw new Error('Ephemeral authentication token not received.');
+        throw new Error('Ephemeral token is missing from server response.');
       }
 
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${ephemeralToken}`;
+      console.log('[AIBuddy] Connecting to Gemini Live WebSocket...');
+
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
+        console.log('[AIBuddy] Gemini Live WebSocket connected.');
+        this.isConnected = true;
         this.sendInitialSetup(model);
       };
 
@@ -77,22 +81,25 @@ Use cheerful tone with simple words.
       };
 
       this.ws.onerror = (e) => {
-        console.error('Gemini Live WS Error:', e);
-        this.setState('error', 'Connection issue. Let\'s try again!');
+        console.error('[AIBuddy ERROR] WebSocket error:', e);
+        this.setState('error', 'Connection issue. Tap to retry!');
       };
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (e) => {
+        console.log(`[AIBuddy] WebSocket closed. Code: ${e.code}, Reason: ${e.reason}`);
+        this.isConnected = false;
         this.setState('disconnected', 'Buddy is resting.');
         this.stopAudioCapture();
       };
     } catch (err: any) {
-      console.error('Session connection failed:', err);
-      this.setState('error', err.message || 'Buddy needs internet to talk right now.');
-      if (this.onError) this.onError(err.message || 'Failed to connect');
+      console.error('[AIBuddy ERROR] connect() failed:', err);
+      this.setState('error', 'Buddy needs internet to talk right now.');
+      if (this.onError) this.onError(err.message || 'Connection failed');
     }
   }
 
   private sendInitialSetup(model: string) {
+    console.log(`[AIBuddy] Sending initial setup for model: ${model}`);
     const setupMsg = {
       setup: {
         model: `models/${model}`,
@@ -116,10 +123,11 @@ Use cheerful tone with simple words.
   }
 
   public async startTalking(): Promise<void> {
+    console.log('[AIBuddy] startTalking() called');
     try {
-      this.setState('listening', 'Listening to you... 👂');
       this.initAudioContext();
-
+      console.log('[AIBuddy] Requesting navigator.mediaDevices.getUserMedia...');
+      
       this.micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -128,6 +136,9 @@ Use cheerful tone with simple words.
           noiseSuppression: true
         }
       });
+
+      const audioTracks = this.micStream.getAudioTracks();
+      console.log(`[AIBuddy] Mic stream active. Audio tracks: ${audioTracks.length}, State: ${audioTracks[0]?.readyState}`);
 
       if (!this.audioContext) return;
       this.source = this.audioContext.createMediaStreamSource(this.micStream);
@@ -155,16 +166,36 @@ Use cheerful tone with simple words.
 
       this.source.connect(this.processor);
       this.processor.connect(this.audioContext.destination);
+      this.setState('listening', 'Listening to you... 👂');
+      console.log('[AIBuddy] Audio pipeline active and streaming PCM...');
     } catch (err: any) {
-      console.error('Microphone error:', err);
+      console.error('[AIBuddy ERROR] getUserMedia/AudioContext error:', err);
       this.setState('error', 'Microphone permission is needed so Buddy can hear you 🎤');
-      if (this.onError) this.onError('Microphone permission is needed so Buddy can hear you 🎤');
+      if (this.onError) this.onError('Microphone permission denied.');
     }
   }
 
   public stopTalking(): void {
+    console.log('[AIBuddy] stopTalking() called - finalizing client audio turn');
     this.stopAudioCapture();
     this.setState('thinking', 'Buddy is thinking... 🤖');
+
+    // Send explicit clientContent turn signal so Gemini Live produces a response
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const endTurnMsg = {
+        clientContent: {
+          turns: [
+            {
+              role: 'user',
+              parts: [{ text: 'Respond to the spoken audio.' }]
+            }
+          ],
+          turnComplete: true
+        }
+      };
+      this.ws.send(JSON.stringify(endTurnMsg));
+      console.log('[AIBuddy] Sent turnComplete message to Gemini Live.');
+    }
   }
 
   private stopAudioCapture(): void {
@@ -191,20 +222,21 @@ Use cheerful tone with simple words.
 
     if (!msg) return;
 
-    // Handle Interruption / Barge-in
     if (msg.serverContent?.interrupted) {
+      console.log('[AIBuddy] Server audio interrupted by user.');
       this.stopAllAudioPlayback();
       this.setState('ready', 'Listening...');
       return;
     }
 
-    // Handle Model Audio Content
     const parts = msg.serverContent?.modelTurn?.parts || [];
     for (const part of parts) {
       if (part.text && this.onTranscript) {
+        console.log('[AIBuddy] Received text transcript:', part.text);
         this.onTranscript({ sender: 'buddy', text: part.text });
       }
       if (part.inlineData && part.inlineData.data) {
+        console.log('[AIBuddy] Received PCM audio chunk from Gemini.');
         this.setState('speaking', 'Buddy is speaking... 🔊');
         const pcmData = this.base64ToArrayBuffer(part.inlineData.data);
         this.playPCMChunk(pcmData, 24000);
@@ -212,9 +244,10 @@ Use cheerful tone with simple words.
     }
 
     if (msg.serverContent?.turnComplete) {
+      console.log('[AIBuddy] Server turn complete.');
       setTimeout(() => {
         if (this.scheduledAudioSources.length === 0) {
-          this.setState('ready', 'Ready for next question! 🌟');
+          this.setState('ready', 'Tap to Talk! 🎤');
         }
       }, 500);
     }
@@ -272,6 +305,7 @@ Use cheerful tone with simple words.
   }
 
   public disconnect(): void {
+    console.log('[AIBuddy] Session disconnecting and clearing resources.');
     this.stopAudioCapture();
     this.stopAllAudioPlayback();
     if (this.ws) {
