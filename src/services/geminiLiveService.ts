@@ -79,18 +79,20 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       };
 
       this.ws.onmessage = async (event) => {
+        console.log('[AIBuddy WS] MESSAGE RECEIVED');
         await this.handleServerMessage(event.data);
       };
 
       this.ws.onerror = (e) => {
         console.error('[AIBuddy ERROR] WebSocket error:', e);
-        this.setState('error', 'Connection issue. Tap to retry!');
+        console.error('[AIBuddy ERROR] WebSocket readyState:', this.ws?.readyState);
+        this.setState('error', 'Gemini connection error. Tap to retry!');
       };
 
       this.ws.onclose = (e) => {
-        console.log(`[AIBuddy] Gemini session closed code = ${e.code}, reason = ${e.reason}`);
+        console.log(`[AIBuddy] Gemini session CLOSED code=${e.code}, reason=${e.reason}, wasClean=${e.wasClean}`);
         this.isConnected = false;
-        this.setState('disconnected', 'Buddy is resting.');
+        this.setState('disconnected', `Gemini disconnected (${e.code})`);
         this.stopAudioCapture();
       };
     } catch (err: any) {
@@ -254,6 +256,20 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     }
 
     if (!msg) return;
+
+    console.log('[AIBuddy GEMINI RAW]', JSON.stringify(msg));
+
+    if (msg.setupComplete) {
+      console.log('[AIBuddy GEMINI] SETUP COMPLETE');
+      this.setState('ready', 'Tap to Talk with Buddy! 🎤');
+      return;
+    }
+
+    if (msg.error) {
+      console.error('[AIBuddy GEMINI ERROR]', JSON.stringify(msg.error));
+      this.setState('error', 'Gemini connection error. Tap to retry!');
+      return;
+    }
 
     if (msg.serverContent) {
       console.log('[AIBuddy GEMINI EVENT] serverContent received');
