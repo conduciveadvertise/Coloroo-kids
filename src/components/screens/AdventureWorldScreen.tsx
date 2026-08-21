@@ -42,7 +42,6 @@ import {
   DINO_WORD_QUESTIONS,
   JURASSIC_QUEST_STEPS,
   DINO_BOSS_QUESTIONS,
-  DINO_LEVELS as DinoLevelsArray,
   DinoLevelDef
 } from '../../data/dinoWorldData';
 import {
@@ -81,37 +80,15 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     saveStoredAdventureProgress(progress);
   }, [progress]);
 
-  const completedForest = useMemo(() => {
-    return progress.completedLevels['forest'] || [];
-  }, [progress.completedLevels]);
+  const completedForest = useMemo(() => progress.completedLevels['forest'] || [], [progress.completedLevels]);
+  const completedOcean = useMemo(() => progress.completedLevels['ocean'] || [], [progress.completedLevels]);
+  const completedSpace = useMemo(() => progress.completedLevels['space'] || [], [progress.completedLevels]);
+  const completedDino = useMemo(() => progress.completedLevels['dino'] || [], [progress.completedLevels]);
 
-  const completedOcean = useMemo(() => {
-    return progress.completedLevels['ocean'] || [];
-  }, [progress.completedLevels]);
-
-  const completedSpace = useMemo(() => {
-    return progress.completedLevels['space'] || [];
-  }, [progress.completedLevels]);
-
-  const completedDino = useMemo(() => {
-    return progress.completedLevels['dino'] || [];
-  }, [progress.completedLevels]);
-
-  const isForestComplete = useMemo(() => {
-    return completedForest.includes(5) || completedForest.length >= 5;
-  }, [completedForest]);
-
-  const isOceanComplete = useMemo(() => {
-    return completedOcean.includes(6) || completedOcean.length >= 6;
-  }, [completedOcean]);
-
-  const isSpaceComplete = useMemo(() => {
-    return completedSpace.includes(6) || completedSpace.length >= 6;
-  }, [completedSpace]);
-
-  const isDinoComplete = useMemo(() => {
-    return completedDino.includes(6) || completedDino.length >= 6;
-  }, [completedDino]);
+  const isForestComplete = useMemo(() => completedForest.includes(5) || completedForest.length >= 5, [completedForest]);
+  const isOceanComplete = useMemo(() => completedOcean.includes(6) || completedOcean.length >= 6, [completedOcean]);
+  const isSpaceComplete = useMemo(() => completedSpace.includes(6) || completedSpace.length >= 6, [completedSpace]);
+  const isDinoComplete = useMemo(() => completedDino.includes(6) || completedDino.length >= 6, [completedDino]);
 
   const isWorldUnlocked = (worldId: WorldId): boolean => {
     if (worldId === 'forest') return true;
@@ -119,6 +96,71 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     if (worldId === 'space') return isOceanComplete || progress.unlockedWorlds.includes('space');
     if (worldId === 'dino') return isSpaceComplete || progress.unlockedWorlds.includes('dino');
     return false;
+  };
+
+  // =========================================================================
+  // DYNAMIC QUESTION VOICE TEXT RESOLVER (Forest, Ocean, Space, Dino)
+  // =========================================================================
+  const currentQuestionVoiceText = useMemo(() => {
+    if (!activeLevel) return '';
+
+    // 1. FOREST
+    if (selectedWorld === 'forest') {
+      const fLvl = activeLevel as AdventureLevelDef;
+      if (fLvl.type === 'abc') return 'Find the letter B for Butterfly.';
+      if (fLvl.type === 'color') return 'Find the green forest leaf.';
+      if (fLvl.type === 'math') return 'How many apples are on the tree?';
+      if (fLvl.type === 'memory') return 'Match the two bunny friends.';
+      if (fLvl.type === 'boss') return 'Find the letter D for Dino.';
+    }
+
+    // 2. OCEAN
+    if (selectedWorld === 'ocean') {
+      const oLvl = activeLevel as OceanLevelDef;
+      if (oLvl.type === 'ocean-colors') return OCEAN_COLOR_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (oLvl.type === 'ocean-count') return OCEAN_COUNT_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (oLvl.type === 'ocean-match') return 'Match the ocean animal pairs.';
+      if (oLvl.type === 'ocean-words') return OCEAN_WORD_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (oLvl.type === 'coral-quest') return CORAL_QUEST_STEPS[questStep]?.q.replace(/^[A-Za-z0-9\s]+:\s*/, '') || '';
+      if (oLvl.type === 'ocean-boss') return OCEAN_BOSS_QUESTIONS[bossStep]?.voice || '';
+    }
+
+    // 3. SPACE
+    if (selectedWorld === 'space') {
+      const sLvl = activeLevel as SpaceLevelDef;
+      if (sLvl.type === 'space-colors') return SPACE_COLOR_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (sLvl.type === 'space-count') return SPACE_COUNT_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (sLvl.type === 'space-match') return 'Match the space pairs.';
+      if (sLvl.type === 'space-words') return SPACE_WORD_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (sLvl.type === 'galaxy-quest') return GALAXY_QUEST_STEPS[questStep]?.q.replace(/^[A-Za-z0-9\s]+:\s*/, '') || '';
+      if (sLvl.type === 'space-boss') return SPACE_BOSS_QUESTIONS[bossStep]?.voice || '';
+    }
+
+    // 4. DINO
+    if (selectedWorld === 'dino') {
+      const dLvl = activeLevel as DinoLevelDef;
+      if (dLvl.type === 'dino-colors') return DINO_COLOR_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (dLvl.type === 'dino-count') return DINO_COUNT_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (dLvl.type === 'dino-match') return 'Match the prehistoric pairs.';
+      if (dLvl.type === 'dino-words') return DINO_WORD_QUESTIONS[genericQuestionIndex]?.prompt || '';
+      if (dLvl.type === 'jurassic-quest') return JURASSIC_QUEST_STEPS[questStep]?.q.replace(/^[A-Za-z0-9\s]+:\s*/, '') || '';
+      if (dLvl.type === 'dino-boss') return DINO_BOSS_QUESTIONS[bossStep]?.voice || '';
+    }
+
+    return '';
+  }, [activeLevel, selectedWorld, genericQuestionIndex, questStep, bossStep]);
+
+  // Automatically speak the question once when entering a level or changing questions
+  useEffect(() => {
+    if (activeLevel && currentQuestionVoiceText && !levelSuccess && !isGrandFinaleModal) {
+      sound.speak(currentQuestionVoiceText);
+    }
+  }, [activeLevel?.id, selectedWorld, genericQuestionIndex, questStep, bossStep]);
+
+  const handleRepeatVoice = () => {
+    if (currentQuestionVoiceText) {
+      sound.speak(currentQuestionVoiceText);
+    }
   };
 
   // Level Selection Handlers
@@ -133,7 +175,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     }
 
     sound.playPop();
-    sound.speak(`Level ${level.id}! ${level.title}!`);
     setActiveLevel(level);
     setLevelSuccess(false);
   };
@@ -149,7 +190,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     }
 
     sound.playPop();
-    sound.speak(`Ocean Quest ${level.id}! ${level.title}!`);
     setActiveLevel(level);
     setGenericQuestionIndex(0);
     setQuestStep(0);
@@ -180,7 +220,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     }
 
     sound.playPop();
-    sound.speak(`Space Quest ${level.id}! ${level.title}!`);
     setActiveLevel(level);
     setGenericQuestionIndex(0);
     setQuestStep(0);
@@ -211,7 +250,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     }
 
     sound.playPop();
-    sound.speak(`Dino Quest ${level.id}! ${level.title}!`);
     setActiveLevel(level);
     setGenericQuestionIndex(0);
     setQuestStep(0);
@@ -231,6 +269,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     }
   };
 
+  // Completion Handlers
   const handleCompleteForestLevel = (levelId: number) => {
     sound.playFanfare();
     setLevelSuccess(true);
@@ -251,13 +290,9 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     const nextProgress: AdventureProgress = {
       ...progress,
       unlockedWorlds: updatedWorlds,
-      completedLevels: {
-        ...progress.completedLevels,
-        forest: newCompleted
-      },
+      completedLevels: { ...progress.completedLevels, forest: newCompleted },
       currentLevel: Math.min(levelId + 1, 5)
     };
-
     setProgress(nextProgress);
     saveStoredAdventureProgress(nextProgress);
   };
@@ -282,12 +317,8 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     const nextProgress: AdventureProgress = {
       ...progress,
       unlockedWorlds: updatedWorlds,
-      completedLevels: {
-        ...progress.completedLevels,
-        ocean: newCompleted
-      }
+      completedLevels: { ...progress.completedLevels, ocean: newCompleted }
     };
-
     setProgress(nextProgress);
     saveStoredAdventureProgress(nextProgress);
   };
@@ -312,12 +343,8 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     const nextProgress: AdventureProgress = {
       ...progress,
       unlockedWorlds: updatedWorlds,
-      completedLevels: {
-        ...progress.completedLevels,
-        space: newCompleted
-      }
+      completedLevels: { ...progress.completedLevels, space: newCompleted }
     };
-
     setProgress(nextProgress);
     saveStoredAdventureProgress(nextProgress);
   };
@@ -332,12 +359,8 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
 
     const nextProgress: AdventureProgress = {
       ...progress,
-      completedLevels: {
-        ...progress.completedLevels,
-        dino: newCompleted
-      }
+      completedLevels: { ...progress.completedLevels, dino: newCompleted }
     };
-
     setProgress(nextProgress);
     saveStoredAdventureProgress(nextProgress);
 
@@ -350,7 +373,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     }
   };
 
-  // Memory Match Card Tap
   const handleMemoryTap = (cardId: number, world: 'ocean' | 'space' | 'dino') => {
     if (flippedIds.length === 2) return;
     const clicked = memoryCards.find(c => c.id === cardId);
@@ -390,314 +412,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     }
   };
 
-  // Render Dino Level Sandbox
-  const renderDinoLevelContent = (lvl: DinoLevelDef) => {
-    // Level 1: Dino Colors
-    if (lvl.type === 'dino-colors') {
-      const q = DINO_COLOR_QUESTIONS[genericQuestionIndex];
-      return (
-        <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
-              Question {genericQuestionIndex + 1} of {DINO_COLOR_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">🦕 Dino Colors</span>
-          </div>
-
-          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
-            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
-              "{q.prompt}"
-            </h3>
-          </div>
-
-          <div className="flex gap-3.5 my-2">
-            {q.options.map((opt, i) => (
-              <motion.button
-                key={i}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  if (opt.isCorrect) {
-                    sound.playCorrect();
-                    sound.speak(`Awesome! ${opt.name}!`);
-                    if (genericQuestionIndex < DINO_COLOR_QUESTIONS.length - 1) {
-                      setGenericQuestionIndex(idx => idx + 1);
-                    } else {
-                      handleCompleteDinoLevel(lvl.id);
-                    }
-                  } else {
-                    sound.playPop();
-                    sound.speak(`That is ${opt.name}. Find ${q.targetColorName}!`);
-                  }
-                }}
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl border-4 border-white flex flex-col items-center justify-center p-2 cursor-pointer shadow-lg text-white font-black text-xs font-['Fredoka']"
-                style={{ backgroundColor: opt.hex }}
-              >
-                <span className="text-3xl drop-shadow">{opt.emoji}</span>
-                <span className="mt-1 text-[11px] leading-tight text-center drop-shadow">{opt.name}</span>
-              </motion.button>
-            ))}
-          </div>
-
-          <span className="text-[10px] font-bold text-slate-400">Tap the dinosaur with the target color!</span>
-        </div>
-      );
-    }
-
-    // Level 2: Dino Counting
-    if (lvl.type === 'dino-count') {
-      const q = DINO_COUNT_QUESTIONS[genericQuestionIndex];
-      return (
-        <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
-              Question {genericQuestionIndex + 1} of {DINO_COUNT_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">🥚 Dino Counting</span>
-          </div>
-
-          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
-            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
-              "{q.prompt}"
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2.5 my-2 flex-wrap justify-center max-w-sm">
-            {Array.from({ length: q.count }).map((_, i) => (
-              <span key={i} className="text-4xl drop-shadow-md animate-bounce-gentle">
-                {q.emoji}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex gap-3">
-            {q.options.map(num => (
-              <motion.button
-                key={num}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  if (num === q.count) {
-                    sound.playCorrect();
-                    sound.speak(`${num}! That is correct!`);
-                    if (genericQuestionIndex < DINO_COUNT_QUESTIONS.length - 1) {
-                      setGenericQuestionIndex(idx => idx + 1);
-                    } else {
-                      handleCompleteDinoLevel(lvl.id);
-                    }
-                  } else {
-                    sound.playPop();
-                    sound.speak(`Not ${num}. Count again!`);
-                  }
-                }}
-                className="w-20 h-14 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-2xl shadow-md border-2 border-white flex items-center justify-center cursor-pointer"
-              >
-                {num}
-              </motion.button>
-            ))}
-          </div>
-
-          <span className="text-[10px] font-bold text-slate-400">Tap the matching number button!</span>
-        </div>
-      );
-    }
-
-    // Level 3: Dino Match
-    if (lvl.type === 'dino-match') {
-      return (
-        <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="bg-amber-50 border border-amber-200 px-5 py-1.5 rounded-2xl text-center">
-            <span className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
-              "Match the Prehistoric Pairs!" 🦖 🦕
-            </span>
-          </div>
-
-          <div className="grid grid-cols-4 gap-3 my-2">
-            {memoryCards.map(card => (
-              <motion.button
-                key={card.id}
-                whileHover={{ scale: 1.06 }}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => handleMemoryTap(card.id, 'dino')}
-                className={`w-20 h-22 sm:w-24 sm:h-26 rounded-3xl border-3 flex flex-col items-center justify-center cursor-pointer shadow-md transition-all ${
-                  card.isMatched
-                    ? 'bg-emerald-100 border-emerald-400 text-emerald-800'
-                    : card.isFlipped
-                    ? 'bg-amber-100 border-amber-400'
-                    : 'bg-gradient-to-br from-amber-500 to-orange-600 border-white text-white'
-                }`}
-              >
-                {card.isFlipped || card.isMatched ? (
-                  <>
-                    <span className="text-4xl drop-shadow">{card.emoji}</span>
-                    <span className="text-[10px] font-black text-amber-950 font-['Fredoka'] mt-1">{card.name}</span>
-                  </>
-                ) : (
-                  <span className="text-3xl text-amber-200">🦖</span>
-                )}
-              </motion.button>
-            ))}
-          </div>
-
-          <span className="text-[10px] font-bold text-slate-400">Find matching dinosaur friends to complete the quest!</span>
-        </div>
-      );
-    }
-
-    // Level 4: Dino Words
-    if (lvl.type === 'dino-words') {
-      const q = DINO_WORD_QUESTIONS[genericQuestionIndex];
-      return (
-        <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
-              Word {genericQuestionIndex + 1} of {DINO_WORD_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">📖 Dino Words</span>
-          </div>
-
-          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
-            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
-              "{q.prompt}"
-            </h3>
-          </div>
-
-          <div className="flex gap-3.5 my-2">
-            {q.options.map((opt, i) => (
-              <motion.button
-                key={i}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  if (opt.isCorrect) {
-                    sound.playCorrect();
-                    sound.speak(`${q.letter}... ${opt.word}!`);
-                    if (genericQuestionIndex < DINO_WORD_QUESTIONS.length - 1) {
-                      setGenericQuestionIndex(idx => idx + 1);
-                    } else {
-                      handleCompleteDinoLevel(lvl.id);
-                    }
-                  } else {
-                    sound.playPop();
-                    sound.speak(`Try again! Find the word starting with ${q.letter}!`);
-                  }
-                }}
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white hover:bg-amber-50 border-3 border-amber-200 flex flex-col items-center justify-center p-2 cursor-pointer shadow-md"
-              >
-                <span className="text-4xl drop-shadow">{opt.emoji}</span>
-                <span className="text-xs sm:text-sm font-black text-amber-950 font-['Fredoka'] mt-1">{opt.word}</span>
-              </motion.button>
-            ))}
-          </div>
-
-          <span className="text-[10px] font-bold text-slate-400">Tap the prehistoric friend starting with {q.letter}!</span>
-        </div>
-      );
-    }
-
-    // Level 5: Jurassic Quest
-    if (lvl.type === 'jurassic-quest') {
-      const step = JURASSIC_QUEST_STEPS[questStep];
-      return (
-        <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-orange-700 bg-orange-50 px-3 py-0.5 rounded-full border border-orange-200">
-              Jurassic Task {questStep + 1} of 5
-            </span>
-            <span className="text-xs font-black text-purple-950">🌋 Jurassic Quest</span>
-          </div>
-
-          <div className="bg-orange-50 border-2 border-orange-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
-            <h3 className="text-sm sm:text-base font-black text-orange-950 font-['Fredoka']">
-              "{step.q}"
-            </h3>
-          </div>
-
-          <div className="flex gap-3 my-2">
-            {step.options.map((opt, i) => (
-              <motion.button
-                key={i}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  if (opt.isCorrect) {
-                    sound.playCorrect();
-                    if (questStep < JURASSIC_QUEST_STEPS.length - 1) {
-                      setQuestStep(s => s + 1);
-                    } else {
-                      handleCompleteDinoLevel(lvl.id);
-                    }
-                  } else {
-                    sound.playPop();
-                    sound.speak("Try again!");
-                  }
-                }}
-                className="w-28 sm:w-32 py-3.5 rounded-2xl bg-white hover:bg-orange-50 text-orange-950 font-black text-xs sm:text-sm border-3 border-orange-200 shadow-md cursor-pointer flex items-center justify-center text-center"
-              >
-                {opt.label}
-              </motion.button>
-            ))}
-          </div>
-
-          <span className="text-[10px] font-bold text-slate-400">Complete all 5 tasks to reach the Final Dino Challenge!</span>
-        </div>
-      );
-    }
-
-    // Level 6: Dino Boss Challenge
-    if (lvl.type === 'dino-boss') {
-      const q = DINO_BOSS_QUESTIONS[bossStep];
-      return (
-        <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
-              Final Trial {bossStep + 1} of 6
-            </span>
-            <span className="text-xs font-black text-purple-950">🏆 Final Dino Challenge</span>
-          </div>
-
-          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
-            <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
-              "{q.q}"
-            </h3>
-          </div>
-
-          <div className="flex gap-3 my-2">
-            {q.options.map((opt, i) => (
-              <motion.button
-                key={i}
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.92 }}
-                onClick={() => {
-                  if (opt === q.correct) {
-                    sound.playCorrect();
-                    if (bossStep < DINO_BOSS_QUESTIONS.length - 1) {
-                      sound.speak("Awesome! Next trial!");
-                      setBossStep(s => s + 1);
-                    } else {
-                      handleCompleteDinoLevel(lvl.id);
-                    }
-                  } else {
-                    sound.playPop();
-                    sound.speak("Try again!");
-                  }
-                }}
-                className="w-24 sm:w-28 py-3.5 rounded-2xl bg-white hover:bg-amber-50 text-purple-950 font-black text-base sm:text-lg border-3 border-amber-200 shadow-md cursor-pointer flex items-center justify-center text-center"
-              >
-                {opt}
-              </motion.button>
-            ))}
-          </div>
-
-          <span className="text-[10px] font-bold text-slate-400">Solve all 6 trials to complete Dino World! 🦖</span>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  // Render Forest Game Sandbox
+  // Render Sub-Level Sandboxes
   const renderForestLevelContent = (lvl: AdventureLevelDef) => {
     if (lvl.type === 'abc') {
       return (
@@ -889,7 +604,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                     sound.playPop();
                   }
                 }}
-                className="w-24 py-3 rounded-2xl bg-white text-purple-950 font-black text-lg border-2 border-purple-200 shadow"
+                className="w-24 py-3 rounded-2xl bg-white text-purple-950 font-black text-lg border-2 border-purple-200 shadow cursor-pointer"
               >
                 {opt}
               </button>
@@ -903,20 +618,12 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     return null;
   };
 
-  // Render Ocean Level Sandbox
   const renderOceanLevelContent = (lvl: OceanLevelDef) => {
     if (lvl.type === 'ocean-colors') {
       const q = OCEAN_COLOR_QUESTIONS[genericQuestionIndex];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-cyan-700 bg-cyan-50 px-3 py-0.5 rounded-full border border-cyan-200">
-              Question {genericQuestionIndex + 1} of {OCEAN_COLOR_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">🐚 Ocean Colors</span>
-          </div>
-
-          <div className="bg-cyan-50 border-2 border-cyan-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+          <div className="bg-cyan-50 border-2 border-cyan-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-cyan-950 font-['Fredoka']">
               "{q.prompt}"
             </h3>
@@ -960,13 +667,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const q = OCEAN_COUNT_QUESTIONS[genericQuestionIndex];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-cyan-700 bg-cyan-50 px-3 py-0.5 rounded-full border border-cyan-200">
-              Question {genericQuestionIndex + 1} of {OCEAN_COUNT_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">🐠 Sea Animal Count</span>
-          </div>
-
           <div className="bg-amber-50 border-2 border-amber-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
               "{q.prompt}"
@@ -1058,13 +758,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const q = OCEAN_WORD_QUESTIONS[genericQuestionIndex];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-cyan-700 bg-cyan-50 px-3 py-0.5 rounded-full border border-cyan-200">
-              Word {genericQuestionIndex + 1} of {OCEAN_WORD_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">🐳 Ocean Words</span>
-          </div>
-
           <div className="bg-cyan-50 border-2 border-cyan-300 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-cyan-950 font-['Fredoka']">
               "{q.prompt}"
@@ -1108,13 +801,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const step = CORAL_QUEST_STEPS[questStep];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-rose-700 bg-rose-50 px-3 py-0.5 rounded-full border border-rose-200">
-              Reef Task {questStep + 1} of 5
-            </span>
-            <span className="text-xs font-black text-purple-950">🪸 Coral Reef Quest</span>
-          </div>
-
           <div className="bg-rose-50 border-2 border-rose-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-rose-950 font-['Fredoka']">
               "{step.q}"
@@ -1156,13 +842,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const q = OCEAN_BOSS_QUESTIONS[bossStep];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
-              Trial {bossStep + 1} of 6
-            </span>
-            <span className="text-xs font-black text-purple-950">🏆 Ocean Boss Challenge</span>
-          </div>
-
           <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
               "{q.q}"
@@ -1204,19 +883,11 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     return null;
   };
 
-  // Render Space Level Sandbox
   const renderSpaceLevelContent = (lvl: SpaceLevelDef) => {
     if (lvl.type === 'space-colors') {
       const q = SPACE_COLOR_QUESTIONS[genericQuestionIndex];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-0.5 rounded-full border border-indigo-200">
-              Question {genericQuestionIndex + 1} of {SPACE_COLOR_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">🚀 Rocket Colors</span>
-          </div>
-
           <div className="bg-indigo-50 border-2 border-indigo-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-indigo-950 font-['Fredoka']">
               "{q.prompt}"
@@ -1261,13 +932,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const q = SPACE_COUNT_QUESTIONS[genericQuestionIndex];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-0.5 rounded-full border border-indigo-200">
-              Question {genericQuestionIndex + 1} of {SPACE_COUNT_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">🪐 Planet Count</span>
-          </div>
-
           <div className="bg-amber-50 border-2 border-amber-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
               "{q.prompt}"
@@ -1359,13 +1023,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const q = SPACE_WORD_QUESTIONS[genericQuestionIndex];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-0.5 rounded-full border border-indigo-200">
-              Word {genericQuestionIndex + 1} of {SPACE_WORD_QUESTIONS.length}
-            </span>
-            <span className="text-xs font-black text-purple-950">👽 Space Words</span>
-          </div>
-
           <div className="bg-indigo-50 border-2 border-indigo-300 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-indigo-950 font-['Fredoka']">
               "{q.prompt}"
@@ -1409,13 +1066,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const step = GALAXY_QUEST_STEPS[questStep];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-purple-700 bg-purple-50 px-3 py-0.5 rounded-full border border-purple-200">
-              Galaxy Task {questStep + 1} of 5
-            </span>
-            <span className="text-xs font-black text-purple-950">🌌 Galaxy Quest</span>
-          </div>
-
           <div className="bg-purple-50 border-2 border-purple-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
               "{step.q}"
@@ -1457,13 +1107,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       const q = SPACE_BOSS_QUESTIONS[bossStep];
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex justify-between w-full px-2">
-            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
-              Trial {bossStep + 1} of 6
-            </span>
-            <span className="text-xs font-black text-purple-950">🏆 Space Boss Challenge</span>
-          </div>
-
           <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
               "{q.q}"
@@ -1505,6 +1148,271 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     return null;
   };
 
+  const renderDinoLevelContent = (lvl: DinoLevelDef) => {
+    if (lvl.type === 'dino-colors') {
+      const q = DINO_COLOR_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    sound.speak(`Awesome! ${opt.name}!`);
+                    if (genericQuestionIndex < DINO_COLOR_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`That is ${opt.name}. Find ${q.targetColorName}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl border-4 border-white flex flex-col items-center justify-center p-2 cursor-pointer shadow-lg text-white font-black text-xs font-['Fredoka']"
+                style={{ backgroundColor: opt.hex }}
+              >
+                <span className="text-3xl drop-shadow">{opt.emoji}</span>
+                <span className="mt-1 text-[11px] leading-tight text-center drop-shadow">{opt.name}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the dinosaur with the target color!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'dino-count') {
+      const q = DINO_COUNT_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2.5 my-2 flex-wrap justify-center max-w-sm">
+            {Array.from({ length: q.count }).map((_, i) => (
+              <span key={i} className="text-4xl drop-shadow-md animate-bounce-gentle">
+                {q.emoji}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            {q.options.map(num => (
+              <motion.button
+                key={num}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (num === q.count) {
+                    sound.playCorrect();
+                    sound.speak(`${num}! That is correct!`);
+                    if (genericQuestionIndex < DINO_COUNT_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Not ${num}. Count again!`);
+                  }
+                }}
+                className="w-20 h-14 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-2xl shadow-md border-2 border-white flex items-center justify-center cursor-pointer"
+              >
+                {num}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the matching number button!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'dino-match') {
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-amber-50 border border-amber-200 px-5 py-1.5 rounded-2xl text-center">
+            <span className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "Match the Prehistoric Pairs!" 🦖 🦕
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 my-2">
+            {memoryCards.map(card => (
+              <motion.button
+                key={card.id}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => handleMemoryTap(card.id, 'dino')}
+                className={`w-20 h-22 sm:w-24 sm:h-26 rounded-3xl border-3 flex flex-col items-center justify-center cursor-pointer shadow-md transition-all ${
+                  card.isMatched
+                    ? 'bg-emerald-100 border-emerald-400 text-emerald-800'
+                    : card.isFlipped
+                    ? 'bg-amber-100 border-amber-400'
+                    : 'bg-gradient-to-br from-amber-500 to-orange-600 border-white text-white'
+                }`}
+              >
+                {card.isFlipped || card.isMatched ? (
+                  <>
+                    <span className="text-4xl drop-shadow">{card.emoji}</span>
+                    <span className="text-[10px] font-black text-amber-950 font-['Fredoka'] mt-1">{card.name}</span>
+                  </>
+                ) : (
+                  <span className="text-3xl text-amber-200">🦖</span>
+                )}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Find matching dinosaur friends to complete the quest!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'dino-words') {
+      const q = DINO_WORD_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    sound.speak(`${q.letter}... ${opt.word}!`);
+                    if (genericQuestionIndex < DINO_WORD_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Try again! Find the word starting with ${q.letter}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white hover:bg-amber-50 border-3 border-amber-200 flex flex-col items-center justify-center p-2 cursor-pointer shadow-md"
+              >
+                <span className="text-4xl drop-shadow">{opt.emoji}</span>
+                <span className="text-xs sm:text-sm font-black text-amber-950 font-['Fredoka'] mt-1">{opt.word}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the prehistoric friend starting with {q.letter}!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'jurassic-quest') {
+      const step = JURASSIC_QUEST_STEPS[questStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-orange-50 border-2 border-orange-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-orange-950 font-['Fredoka']">
+              "{step.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {step.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    if (questStep < JURASSIC_QUEST_STEPS.length - 1) {
+                      setQuestStep(s => s + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak("Try again!");
+                  }
+                }}
+                className="w-28 sm:w-32 py-3.5 rounded-2xl bg-white hover:bg-orange-50 text-orange-950 font-black text-xs sm:text-sm border-3 border-orange-200 shadow-md cursor-pointer flex items-center justify-center text-center"
+              >
+                {opt.label}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Complete all 5 tasks to reach the Final Dino Challenge!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'dino-boss') {
+      const q = DINO_BOSS_QUESTIONS[bossStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
+              "{q.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt === q.correct) {
+                    sound.playCorrect();
+                    if (bossStep < DINO_BOSS_QUESTIONS.length - 1) {
+                      sound.speak("Awesome! Next trial!");
+                      setBossStep(s => s + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak("Try again!");
+                  }
+                }}
+                className="w-24 sm:w-28 py-3.5 rounded-2xl bg-white hover:bg-amber-50 text-purple-950 font-black text-base sm:text-lg border-3 border-amber-200 shadow-md cursor-pointer flex items-center justify-center text-center"
+              >
+                {opt}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Solve all 6 trials to complete Dino World! 🦖</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-3 select-none overflow-hidden bg-gradient-to-br from-[#F5F0FF] via-[#F1E8FF] to-[#EBE0FF]">
       {/* Top Header */}
@@ -1532,39 +1440,52 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
           </div>
         </div>
 
-        {/* World Selection Tabs */}
-        <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
-          {WORLDS_INFO.map(w => {
-            const isUnlocked = isWorldUnlocked(w.id);
-            const isSelected = selectedWorld === w.id;
-            return (
-              <button
-                key={w.id}
-                onClick={() => {
-                  sound.playPop();
-                  if (!isUnlocked) {
-                    sound.speak(`${w.name} is locked! Complete previous world challenges first!`);
-                    return;
-                  }
-                  setSelectedWorld(w.id);
-                  setActiveLevel(null);
-                  sound.speak(`${w.name}!`);
-                }}
-                className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-black flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap ${
-                  isSelected
-                    ? 'bg-emerald-500 text-white shadow-md'
-                    : isUnlocked
-                    ? 'text-slate-800 hover:bg-purple-50'
-                    : 'text-slate-400 opacity-60'
-                }`}
-              >
-                <span>{w.themeEmoji}</span>
-                <span>{w.name.split(' ')[0]}</span>
-                {!isUnlocked && <Lock className="w-2.5 h-2.5 ml-0.5 text-slate-400" />}
-              </button>
-            );
-          })}
-        </div>
+        {/* Dynamic Repeat Voice Button when on Active Level */}
+        {activeLevel && !levelSuccess && (
+          <button
+            onClick={handleRepeatVoice}
+            className="px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-black flex items-center gap-1.5 cursor-pointer border border-purple-100 shadow-sm active:scale-95"
+          >
+            <Volume2 className="w-4 h-4 text-purple-700" />
+            <span>🔊 Repeat Voice</span>
+          </button>
+        )}
+
+        {/* World Selection Tabs (when on map) */}
+        {!activeLevel && (
+          <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
+            {WORLDS_INFO.map(w => {
+              const isUnlocked = isWorldUnlocked(w.id);
+              const isSelected = selectedWorld === w.id;
+              return (
+                <button
+                  key={w.id}
+                  onClick={() => {
+                    sound.playPop();
+                    if (!isUnlocked) {
+                      sound.speak(`${w.name} is locked! Complete previous world challenges first!`);
+                      return;
+                    }
+                    setSelectedWorld(w.id);
+                    setActiveLevel(null);
+                    sound.speak(`${w.name}!`);
+                  }}
+                  className={`px-3 py-1 rounded-xl text-[10px] sm:text-xs font-black flex items-center gap-1 transition-all cursor-pointer whitespace-nowrap ${
+                    isSelected
+                      ? 'bg-emerald-500 text-white shadow-md'
+                      : isUnlocked
+                      ? 'text-slate-800 hover:bg-purple-50'
+                      : 'text-slate-400 opacity-60'
+                  }`}
+                >
+                  <span>{w.themeEmoji}</span>
+                  <span>{w.name.split(' ')[0]}</span>
+                  {!isUnlocked && <Lock className="w-2.5 h-2.5 ml-0.5 text-slate-400" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Main Stage Viewport */}
@@ -1908,7 +1829,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </span>
             </div>
 
-            {/* Dino 6-Node Connected Path */}
             <div className="flex-1 flex items-center justify-between px-2 sm:px-4 relative my-1">
               <div className="absolute left-8 right-8 h-3 bg-amber-100 rounded-full -z-0" />
               <div

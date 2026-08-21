@@ -1,6 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, Volume2, RotateCcw } from 'lucide-react';
+import {
+  ChevronLeft,
+  Volume2,
+  Star,
+  Plus,
+  Minus,
+  Hash,
+  ArrowLeftRight,
+  BookOpen,
+  Sparkles,
+  Play
+} from 'lucide-react';
 import { sound } from '../../services/soundEffects';
 import confetti from 'canvas-confetti';
 
@@ -9,491 +20,539 @@ interface LearningScreenProps {
   onAddStars: (amount: number) => void;
 }
 
-type TabType = 'abc' | 'math' | 'numbers' | 'shapes' | 'animals';
+type LearningCategory = 'math' | 'phonics';
+type MathActivity = 'before-after' | 'numbers-50' | 'counting' | 'addition' | 'subtraction';
 
-const PHONICS_DATA = [
-  { letter: 'A', word: 'Apple', icon: '🍎', soundTxt: 'AH', sentence: 'A is for Apple! Ah, ah, Apple!' },
-  { letter: 'B', word: 'Butterfly', icon: '🦋', soundTxt: 'BUH', sentence: 'B is for Butterfly! Buh, buh, Butterfly!' },
-  { letter: 'C', word: 'Cat', icon: '🐱', soundTxt: 'KUH', sentence: 'C is for Cat! Kuh, kuh, Cat!' },
-  { letter: 'D', word: 'Dinosaur', icon: '🦕', soundTxt: 'DUH', sentence: 'D is for Dinosaur! Duh, duh, Dinosaur!' },
-  { letter: 'E', word: 'Elephant', icon: '🐘', soundTxt: 'EH', sentence: 'E is for Elephant! Eh, eh, Elephant!' },
-  { letter: 'F', word: 'Frog', icon: '🐸', soundTxt: 'FUH', sentence: 'F is for Frog! Fuh, fuh, Frog!' },
-  { letter: 'G', word: 'Giraffe', icon: '🦒', soundTxt: 'GUH', sentence: 'G is for Giraffe! Guh, guh, Giraffe!' },
-  { letter: 'H', word: 'Heart', icon: '💖', soundTxt: 'HUH', sentence: 'H is for Heart! Huh, huh, Heart!' },
-  { letter: 'I', word: 'Ice Cream', icon: '🍦', soundTxt: 'IH', sentence: 'I is for Ice Cream! Ih, ih, Ice Cream!' },
-  { letter: 'J', word: 'Jellyfish', icon: '🪼', soundTxt: 'JUH', sentence: 'J is for Jellyfish! Juh, juh, Jellyfish!' },
-  { letter: 'K', word: 'Kangaroo', icon: '🦘', soundTxt: 'KUH', sentence: 'K is for Kangaroo! Kuh, kuh, Kangaroo!' },
-  { letter: 'L', word: 'Lion', icon: '🦁', soundTxt: 'LUH', sentence: 'L is for Lion! Luh, luh, Lion!' },
-  { letter: 'M', word: 'Moon', icon: '🌙', soundTxt: 'MUH', sentence: 'M is for Moon! Muh, muh, Moon!' },
-  { letter: 'N', word: 'Nest', icon: '🪺', soundTxt: 'NUH', sentence: 'N is for Nest! Nuh, nuh, Nest!' },
-  { letter: 'O', word: 'Octopus', icon: '🐙', soundTxt: 'AW', sentence: 'O is for Octopus! Aw, aw, Octopus!' },
-  { letter: 'P', word: 'Penguin', icon: '🐧', soundTxt: 'PUH', sentence: 'P is for Penguin! Puh, puh, Penguin!' },
-  { letter: 'Q', word: 'Queen', icon: '👑', soundTxt: 'KWUH', sentence: 'Q is for Queen! Kwuh, kwuh, Queen!' },
-  { letter: 'R', word: 'Rainbow', icon: '🌈', soundTxt: 'RUH', sentence: 'R is for Rainbow! Ruh, ruh, Rainbow!' },
-  { letter: 'S', word: 'Star', icon: '⭐', soundTxt: 'SUH', sentence: 'S is for Star! Suh, suh, Star!' },
-  { letter: 'T', word: 'Tiger', icon: '🐯', soundTxt: 'TUH', sentence: 'T is for Tiger! Tuh, tuh, Tiger!' },
-  { letter: 'U', word: 'Unicorn', icon: '🦄', soundTxt: 'UH', sentence: 'U is for Unicorn! Uh, uh, Unicorn!' },
-  { letter: 'V', word: 'Volcano', icon: '🌋', soundTxt: 'VUH', sentence: 'V is for Volcano! Vuh, vuh, Volcano!' },
-  { letter: 'W', word: 'Whale', icon: '🐳', soundTxt: 'WUH', sentence: 'W is for Whale! Wuh, wuh, Whale!' },
-  { letter: 'X', word: 'Xylophone', icon: '🎵', soundTxt: 'KS', sentence: 'X is for Xylophone! Ks, ks, Xylophone!' },
-  { letter: 'Y', word: 'Yo-Yo', icon: '🪀', soundTxt: 'YUH', sentence: 'Y is for Yo-Yo! Yuh, yuh, Yo-Yo!' },
-  { letter: 'Z', word: 'Zebra', icon: '🦓', soundTxt: 'ZUH', sentence: 'Z is for Zebra! Zuh, zuh, Zebra!' },
-];
-
-const MATH_LEVELS = [
-  { target: 1, name: 'One (Apple)', emoji: '🍎' },
-  { target: 2, name: 'Two (Ducks)', emoji: '🦆' },
-  { target: 3, name: 'Three (Balloons)', emoji: '🎈' },
-  { target: 4, name: 'Four (Flowers)', emoji: '🌸' },
-  { target: 5, name: 'Five (Stars)', emoji: '⭐' },
-  { target: 6, name: 'Six (Ice Creams)', emoji: '🍦' },
-  { target: 7, name: 'Seven (Strawberries)', emoji: '🍓' },
-  { target: 8, name: 'Eight (Kittens)', emoji: '🐱' },
-  { target: 9, name: 'Nine (Cars)', emoji: '🚗' },
-  { target: 10, name: 'Ten (Rockets)', emoji: '🚀' },
-];
-
-const numWordsMap: Record<number, string> = {
-  1: 'One', 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five',
-  6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine', 10: 'Ten',
-  11: 'Eleven', 12: 'Twelve', 13: 'Thirteen', 14: 'Fourteen', 15: 'Fifteen',
-  16: 'Sixteen', 17: 'Seventeen', 18: 'Eighteen', 19: 'Nineteen', 20: 'Twenty',
-  30: 'Thirty', 40: 'Forty', 50: 'Fifty'
-};
-
-const getNumName = (n: number): string => {
-  if (numWordsMap[n]) return numWordsMap[n];
-  const t = Math.floor(n / 10) * 10;
-  const o = n % 10;
-  return `${numWordsMap[t]} ${numWordsMap[o]}`;
-};
-
-const NUMBERS_1_TO_50 = Array.from({ length: 50 }, (_, i) => {
-  const num = i + 1;
-  const name = getNumName(num);
-  return { num, name };
-});
-
-const SHAPE_MATCH_DATA = [
-  { id: 'star', prompt: 'MATCH COLOR!', name: 'Yellow Star', icon: '⭐', correctColor: 'Yellow' },
-  { id: 'heart', prompt: 'MATCH COLOR!', name: 'Red Heart', icon: '❤️', correctColor: 'Red' },
-  { id: 'circle', prompt: 'MATCH COLOR!', name: 'Blue Circle', icon: '🔵', correctColor: 'Blue' },
-  { id: 'square', prompt: 'MATCH COLOR!', name: 'Green Square', icon: '🟩', correctColor: 'Green' },
-  { id: 'diamond', prompt: 'MATCH COLOR!', name: 'Orange Diamond', icon: '🔶', correctColor: 'Orange' },
-  { id: 'moon', prompt: 'MATCH COLOR!', name: 'Purple Moon', icon: '🌙', correctColor: 'Purple' },
-];
-
-const COLOR_OPTIONS = [
-  { name: 'Yellow', bg: 'bg-[#FDCB6E]' },
-  { name: 'Red', bg: 'bg-[#FF7675]' },
-  { name: 'Blue', bg: 'bg-[#74B9FF]' },
-  { name: 'Green', bg: 'bg-[#55EFC4]' },
-  { name: 'Purple', bg: 'bg-[#A29BFE]' },
-  { name: 'Orange', bg: 'bg-[#FFA502]' },
-];
-
-const ANIMALS_DATA = [
-  { name: 'Coloroo Kangaroo', icon: '🦘', category: 'OUTBACK', fact: 'Boing! Boing! Kangaroo hops high in Australia!', soundText: 'Boing Boing! Kangaroo hops high!' },
-  { name: 'Playful Dolphin', icon: '🐬', category: 'OCEAN', fact: 'Click-click! Squeak! Dolphins love jumping!', soundText: 'Click click! Playful dolphin in the sea!' },
-  { name: 'Gentle Lion', icon: '🦁', category: 'SAVANNA', fact: 'Rrrr-Oar! King of the wild savanna!', soundText: 'Roaaar! Gentle brave lion!' },
-  { name: 'Cute Panda', icon: '🐼', category: 'BAMBOO', fact: 'Munch! Crunch! Pandas love fresh bamboo!', soundText: 'Munch munch! Sweet little panda!' },
-  { name: 'Happy Cow', icon: '🐮', category: 'FARM', fact: 'Moooo-Mooo! Gives tasty milk in the farm!', soundText: 'Moooo! Happy cow in the green meadow!' },
-  { name: 'Little Froggy', icon: '🐸', category: 'JUNGLE', fact: 'Ribbit! Croak! Frogs jump up to 20 times their size!', soundText: 'Ribbit! Croak! Little green froggy!' },
-];
+interface BeforeAfterQuestion {
+  type: 'before' | 'after';
+  number: number;
+  correctAnswer: number;
+  options: number[];
+  qKey: string;
+}
 
 export const LearningScreen: React.FC<LearningScreenProps> = ({ onBack, onAddStars }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('abc');
-  const [selectedPhonic, setSelectedPhonic] = useState(PHONICS_DATA[0]);
-  const [mathIndex, setMathIndex] = useState(2);
-  const [countedItems, setCountedItems] = useState<number[]>([]);
-  const [selectedNumber50, setSelectedNumber50] = useState(NUMBERS_1_TO_50[0]);
-  const [shapeIndex, setShapeIndex] = useState(0);
-  const [selectedAnimal, setSelectedAnimal] = useState(ANIMALS_DATA[0]);
-  const [celebrationMsg, setCelebrationMsg] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<LearningCategory>('math');
+  const [activeMathActivity, setActiveMathActivity] = useState<MathActivity | null>(null);
 
-  const currentMath = MATH_LEVELS[mathIndex];
-  const currentShape = SHAPE_MATCH_DATA[shapeIndex];
+  // ==========================================
+  // BEFORE & AFTER STATE & LOGIC (1–50)
+  // ==========================================
+  const [baQuestion, setBaQuestion] = useState<BeforeAfterQuestion | null>(null);
+  const [baWrongVal, setBaWrongVal] = useState<number | null>(null);
+  const lastBaKeyRef = useRef<string>('');
 
-  // Tab 1: ABC Click (Big letter & voice)
-  const handleLetterClick = (item: typeof PHONICS_DATA[0]) => {
-    setSelectedPhonic(item);
-    sound.playPop();
-    sound.speak(item.sentence);
+  const generateBeforeAfter = (lastK: string): BeforeAfterQuestion => {
+    const type: 'before' | 'after' = Math.random() > 0.5 ? 'before' : 'after';
+    let num = 0;
+    let correct = 0;
+
+    if (type === 'before') {
+      // Before 2..50 -> correct is 1..49 (Never Before 1)
+      num = Math.floor(Math.random() * 49) + 2;
+      correct = num - 1;
+    } else {
+      // After 1..49 -> correct is 2..50 (Never After 50)
+      num = Math.floor(Math.random() * 49) + 1;
+      correct = num + 1;
+    }
+
+    const currentKey = `${type}-${num}`;
+    if (currentKey === lastK) {
+      return generateBeforeAfter(''); // Prevent immediate duplicate
+    }
+
+    // Generate nearby distractors (within 1..50)
+    const optsSet = new Set<number>();
+    optsSet.add(correct);
+
+    const candidates = [
+      num,
+      correct - 1,
+      correct + 1,
+      correct - 2,
+      correct + 2,
+      num - 2,
+      num + 2
+    ].filter(n => n >= 1 && n <= 50 && n !== correct);
+
+    candidates.sort(() => Math.random() - 0.5);
+    for (const c of candidates) {
+      if (optsSet.size < 4) optsSet.add(c);
+    }
+
+    while (optsSet.size < 4) {
+      const fallback = Math.floor(Math.random() * 50) + 1;
+      if (fallback !== correct) optsSet.add(fallback);
+    }
+
+    return {
+      type,
+      number: num,
+      correctAnswer: correct,
+      options: Array.from(optsSet).sort(() => Math.random() - 0.5),
+      qKey: currentKey
+    };
   };
 
-  // Tab 2: Math Counting
-  const handleTapMathItem = (idx: number) => {
-    if (countedItems.includes(idx)) return;
-    const nextCount = countedItems.length + 1;
-    const newCounted = [...countedItems, idx];
-    setCountedItems(newCounted);
+  const loadNextBeforeAfterQuestion = () => {
+    const q = generateBeforeAfter(lastBaKeyRef.current);
+    lastBaKeyRef.current = q.qKey;
+    setBaQuestion(q);
+    setBaWrongVal(null);
+  };
 
-    sound.playPop();
-    sound.speak(`${nextCount}`);
+  // Speak question automatically when new Before & After question loads
+  useEffect(() => {
+    if (activeMathActivity === 'before-after' && baQuestion) {
+      sound.speak(`What comes ${baQuestion.type} ${baQuestion.number}?`);
+    }
+  }, [baQuestion?.qKey, activeMathActivity]);
 
-    if (nextCount === currentMath.target) {
-      sound.playFanfare();
-      try {
-        confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-      } catch {}
-      setCelebrationMsg(`Great job counting ${currentMath.name}! ⭐`);
-      onAddStars(2);
-      setTimeout(() => {
-        sound.speak(`Awesome! You counted ${currentMath.target}! ${currentMath.name}!`);
-      }, 300);
+  const handleSpeakCurrentBA = () => {
+    if (!baQuestion) return;
+    sound.speak(`What comes ${baQuestion.type} ${baQuestion.number}?`);
+  };
+
+  const handleBAGuess = (val: number) => {
+    if (!baQuestion) return;
+    if (val === baQuestion.correctAnswer) {
+      sound.playCorrect();
+      sound.speak("Great job!");
+      try { confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } }); } catch {}
+      onAddStars(10);
+      setTimeout(() => loadNextBeforeAfterQuestion(), 1100);
+    } else {
+      sound.playPop();
+      setBaWrongVal(val);
+      sound.speak("Try again!");
+      setTimeout(() => setBaWrongVal(null), 600);
     }
   };
 
-  const handleNextMath = () => {
-    sound.playPop();
-    setCountedItems([]);
-    setCelebrationMsg(null);
-    setMathIndex((prev) => (prev + 1) % MATH_LEVELS.length);
+  // ==========================================
+  // PRESERVED NUMBERS 1-50 EXPLORER STATE
+  // ==========================================
+  const [selectedNum50, setSelectedNum50] = useState<number>(1);
+
+  // ==========================================
+  // PRESERVED COUNTING / ADDITION / SUBTRACTION
+  // ==========================================
+  const [genericMathQ, setGenericMathQ] = useState<any>(null);
+
+  const initGenericMath = (mode: 'counting' | 'addition' | 'subtraction') => {
+    let qText = '';
+    let voiceText = '';
+    let correct = 0;
+
+    if (mode === 'addition') {
+      const a = Math.floor(Math.random() * 5) + 1;
+      const b = Math.floor(Math.random() * 5) + 1;
+      correct = a + b;
+      qText = `${a} + ${b} = ?`;
+      voiceText = `What is ${a} plus ${b}?`;
+    } else if (mode === 'subtraction') {
+      const a = Math.floor(Math.random() * 5) + 5;
+      const b = Math.floor(Math.random() * 4) + 1;
+      correct = a - b;
+      qText = `${a} - ${b} = ?`;
+      voiceText = `What is ${a} minus ${b}?`;
+    } else {
+      correct = Math.floor(Math.random() * 7) + 2;
+      qText = `Count the friendly stars!`;
+      voiceText = `How many stars are there?`;
+    }
+
+    const opts = Array.from(new Set([correct, correct + 1, Math.max(1, correct - 1), correct + 2])).slice(0, 3).sort(() => Math.random() - 0.5);
+    setGenericMathQ({ mode, qText, voiceText, correct, opts });
+    setBaWrongVal(null);
   };
 
-  // Tab 3: Numbers 1-50 Click
-  const handleNumber50Click = (n: typeof NUMBERS_1_TO_50[0]) => {
-    setSelectedNumber50(n);
-    sound.playPop();
-    sound.speak(`Number ${n.num}! ${n.name}`);
-  };
+  useEffect(() => {
+    if (genericMathQ?.voiceText) {
+      sound.speak(genericMathQ.voiceText);
+    }
+  }, [genericMathQ?.qText]);
 
-  // Tab 4: Shapes
-  const handleColorChoice = (colorName: string) => {
-    if (colorName === currentShape.correctColor) {
+  const handleGenericGuess = (val: number) => {
+    if (!genericMathQ) return;
+    if (val === genericMathQ.correct) {
       sound.playCorrect();
-      sound.speak(`Correct! ${currentShape.name}!`);
-      try {
-        confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-      } catch {}
-      setCelebrationMsg(`Super! That is ${currentShape.name}! 🎨`);
-      onAddStars(2);
-      setTimeout(() => {
-        setCelebrationMsg(null);
-        setShapeIndex((prev) => (prev + 1) % SHAPE_MATCH_DATA.length);
-      }, 1500);
+      sound.speak("That's right!");
+      try { confetti({ particleCount: 45, spread: 55, origin: { y: 0.6 } }); } catch {}
+      onAddStars(10);
+      setTimeout(() => initGenericMath(genericMathQ.mode), 1100);
     } else {
       sound.playPop();
-      sound.speak(`Try again! Find ${currentShape.correctColor}!`);
+      setBaWrongVal(val);
+      sound.speak("Try again!");
+      setTimeout(() => setBaWrongVal(null), 600);
+    }
+  };
+
+  // Launch Activity
+  const openMathActivity = (act: MathActivity) => {
+    sound.playPop();
+    setActiveMathActivity(act);
+    if (act === 'before-after') {
+      loadNextBeforeAfterQuestion();
+    } else if (act === 'numbers-50') {
+      sound.speak("Numbers 1 to 50 explorer!");
+    } else {
+      initGenericMath(act);
     }
   };
 
   return (
-    <div className="w-full h-full flex flex-col justify-between p-2 sm:p-3 select-none overflow-hidden bg-gradient-to-br from-[#F5F0FF] via-[#F1E8FF] to-[#EBE0FF]">
-      {/* Top Header */}
-      <div className="flex items-center justify-between gap-2 shrink-0 mb-1">
+    <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-3 select-none overflow-hidden bg-gradient-to-br from-[#F5F0FF] via-[#F1E8FF] to-[#EBE0FF]">
+      {/* Top Navigation Bar */}
+      <div className="flex items-center justify-between gap-3 shrink-0 mb-1">
         <div className="flex items-center gap-2">
           <button
             onClick={() => {
               sound.playPop();
-              onBack();
+              if (activeMathActivity) {
+                setActiveMathActivity(null);
+              } else {
+                onBack();
+              }
             }}
             className="p-1.5 sm:p-2 rounded-2xl bg-white hover:bg-purple-50 active:scale-95 text-purple-900 flex items-center gap-1 border-2 border-purple-100 shadow-sm cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4 text-purple-700" />
-            <span className="text-xs font-black">Back</span>
+            <span className="text-xs font-black">{activeMathActivity ? 'Math Menu' : 'Home'}</span>
           </button>
-          <h1 className="text-base sm:text-lg font-black text-purple-950 font-['Fredoka']">
-            Learn & Play 🌟
+
+          <h1 className="text-sm sm:text-base font-black text-purple-950 font-sans flex items-center gap-1.5">
+            <BookOpen className="w-4 h-4 text-purple-600" />
+            <span>Learn & Play</span>
           </h1>
         </div>
 
-        {/* 5 Complete Tabs */}
-        <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
-          {[
-            { id: 'abc' as TabType, label: 'abc ABC' },
-            { id: 'math' as TabType, label: '🔢 Math' },
-            { id: 'numbers' as TabType, label: '📝 Numbers (1–50)' },
-            { id: 'shapes' as TabType, label: '🔷 Shapes' },
-            { id: 'animals' as TabType, label: '🐱 Animals' }
-          ].map((t) => (
+        {/* Category Tabs (Maths vs Phonics) when on menu */}
+        {!activeMathActivity ? (
+          <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border-2 border-purple-100 shadow-sm">
             <button
-              key={t.id}
-              onClick={() => {
-                sound.playPop();
-                setActiveTab(t.id);
-                setCelebrationMsg(null);
-              }}
-              className={`px-2.5 py-1 rounded-xl text-[10px] sm:text-xs font-black transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === t.id
-                  ? 'bg-purple-600 text-white shadow-md'
-                  : 'text-slate-600 hover:bg-purple-50'
+              onClick={() => { sound.playPop(); setActiveCategory('math'); sound.speak("Maths and numbers!"); }}
+              className={`px-3 py-1 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeCategory === 'math' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-600 hover:bg-purple-50'
               }`}
             >
-              {t.label}
+              🔢 Maths
             </button>
-          ))}
-        </div>
+            <button
+              onClick={() => { sound.playPop(); setActiveCategory('phonics'); sound.speak("ABC and phonics!"); }}
+              className={`px-3 py-1 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeCategory === 'phonics' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-600 hover:bg-purple-50'
+              }`}
+            >
+              🔤 ABC & Phonics
+            </button>
+          </div>
+        ) : activeMathActivity === 'before-after' && baQuestion ? (
+          <button
+            onClick={handleSpeakCurrentBA}
+            className="px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-black flex items-center gap-1.5 cursor-pointer border border-purple-100 shadow-sm active:scale-95"
+          >
+            <Volume2 className="w-4 h-4 text-purple-700" />
+            <span>🔊 Repeat Voice</span>
+          </button>
+        ) : genericMathQ ? (
+          <button
+            onClick={() => sound.speak(genericMathQ.voiceText)}
+            className="px-3 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-black flex items-center gap-1.5 cursor-pointer border border-purple-100 shadow-sm active:scale-95"
+          >
+            <Volume2 className="w-4 h-4 text-purple-700" />
+            <span>🔊 Repeat Voice</span>
+          </button>
+        ) : null}
       </div>
 
-      {/* Main Interactive Stage */}
-      <div className="flex-1 bg-white rounded-[28px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between min-h-0 relative overflow-hidden">
+      {/* Main Learning Arena */}
+      <div className="flex-1 bg-white rounded-[26px] p-3 border-2 border-purple-100 shadow-xl flex flex-col justify-between relative overflow-hidden min-h-0">
         
-        {/* ================= TAB 1: PHONICS ABC (5-COLUMN SPACIOUS GRID LIKE NUMBERS) ================= */}
-        {activeTab === 'abc' && (
-          <div className="w-full h-full flex gap-3 min-h-0">
-            {/* Left 5-Column Spacious Letter Grid (Takes 60% Width) */}
-            <div className="flex-[1.4] flex flex-col justify-between overflow-hidden border-r border-purple-100 pr-2">
-              <div className="flex items-center justify-between shrink-0 mb-1 px-1">
-                <span className="text-[10px] font-black text-purple-900 uppercase tracking-wider">
-                  TAP ANY LETTER (A–Z) TO HEAR VOICE! 🎧
-                </span>
-                <span className="text-[10px] font-extrabold text-purple-600">26 Letters</span>
-              </div>
-              <div className="flex-1 grid grid-cols-5 gap-1.5 overflow-y-auto no-scrollbar py-0.5 items-center">
-                {PHONICS_DATA.map((item) => {
-                  const isSelected = selectedPhonic.letter === item.letter;
-                  return (
-                    <motion.button
-                      key={item.letter}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleLetterClick(item)}
-                      className={`h-14 sm:h-16 rounded-2xl flex flex-col items-center justify-center p-1 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-purple-600 text-white shadow-lg ring-3 ring-purple-300 scale-105 border-2 border-white'
-                          : 'bg-purple-50/80 hover:bg-purple-100 text-purple-950 border border-purple-100'
-                      }`}
-                    >
-                      <span className="text-xl sm:text-2xl font-black font-['Fredoka'] leading-none">
-                        {item.letter}
-                      </span>
-                      <span className="text-sm sm:text-base mt-0.5 leading-none">{item.icon}</span>
-                    </motion.button>
-                  );
-                })}
-              </div>
+        {/* ========================================================================= */}
+        {/* VIEW 1: MATHS ACTIVITIES MENU (Featuring Clearly Visible Before & After) */}
+        {/* ========================================================================= */}
+        {!activeMathActivity && activeCategory === 'math' && (
+          <div className="w-full h-full flex flex-col justify-between p-1">
+            <div className="text-center py-0.5">
+              <h2 className="text-base sm:text-lg font-black text-purple-950 font-sans">
+                Maths & Numbers Activities 🔢
+              </h2>
+              <p className="text-[10px] sm:text-xs font-bold text-slate-400">Choose a fun maths game to play & learn!</p>
             </div>
 
-            {/* Right Showcase Card (Takes 40% Width) */}
-            <div className="w-64 sm:w-72 bg-[#FFF5F5] rounded-[28px] p-3.5 border-2 border-rose-200 border-b-[6px] border-b-rose-400 shadow-xl flex flex-col justify-between items-center text-center shrink-0">
-              <span className="bg-[#FF2E63] text-white text-[10px] sm:text-xs font-black px-3 py-0.5 rounded-full uppercase shadow-sm">
-                SOUND: /{selectedPhonic.soundTxt}/
-              </span>
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-7xl sm:text-8xl font-black text-purple-950 font-['Fredoka'] leading-none">
-                  {selectedPhonic.letter}
-                </span>
-                <span className="text-5xl sm:text-6xl my-1 drop-shadow-md animate-bounce-gentle">
-                  {selectedPhonic.icon}
-                </span>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-['Fredoka']">
-                  {selectedPhonic.word}
-                </h2>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-500 italic mt-0.5 leading-tight max-w-[200px]">
-                  "{selectedPhonic.sentence}"
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  sound.playPop();
-                  sound.speak(selectedPhonic.sentence);
-                }}
-                className="w-full py-2.5 rounded-2xl bg-[#FF2E63] hover:bg-[#e02052] text-white font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
+            {/* 5 Prominent Maths Activities Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 flex-1 items-stretch my-1">
+              
+              {/* CARD 1: BEFORE & AFTER (1-50) */}
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => openMathActivity('before-after')}
+                className="rounded-[22px] p-3 bg-gradient-to-br from-[#6C5CE7] via-[#5F27CD] to-[#341F97] text-white shadow-lg flex flex-col justify-between cursor-pointer border-2 border-white/60 border-b-[5px] border-b-[#341f97] ring-2 ring-purple-200"
               >
-                <Volume2 className="w-4 h-4" /> <span>Hear Sound</span>
-              </button>
+                <div className="flex justify-between items-start">
+                  <span className="bg-amber-400 text-slate-900 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    ⭐ NEW MODE
+                  </span>
+                  <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                </div>
+                <div className="h-14 rounded-2xl bg-white/20 flex items-center justify-center gap-1 my-1">
+                  <span className="text-3xl">🔢</span>
+                  <ArrowLeftRight className="w-5 h-5 text-amber-300 stroke-[3]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black font-sans leading-tight">Before & After</h3>
+                  <p className="text-[9px] text-white/90 font-bold mt-0.5">Numbers 1–50 sequence</p>
+                </div>
+                <button className="w-full py-1.5 rounded-xl bg-white text-purple-950 font-black text-[10px] shadow cursor-pointer mt-1">
+                  Play Now ▶
+                </button>
+              </motion.div>
+
+              {/* CARD 2: NUMBERS 1-50 EXPLORER */}
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => openMathActivity('numbers-50')}
+                className="rounded-[22px] p-3 bg-gradient-to-br from-[#00cec9] via-[#0984e3] to-[#00d2d3] text-white shadow-lg flex flex-col justify-between cursor-pointer border-2 border-white/60 border-b-[5px] border-b-[#0984e3]"
+              >
+                <span className="bg-white/25 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider w-max">
+                  EXPLORER
+                </span>
+                <div className="h-14 rounded-2xl bg-white/20 flex items-center justify-center my-1">
+                  <span className="text-2xl font-black font-sans">1 → 50</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-black font-sans leading-tight">Numbers (1–50)</h3>
+                  <p className="text-[9px] text-white/90 font-bold mt-0.5">Read, speak & learn count</p>
+                </div>
+                <button className="w-full py-1.5 rounded-xl bg-white text-slate-900 font-black text-[10px] shadow cursor-pointer mt-1">
+                  Open Grid ▶
+                </button>
+              </motion.div>
+
+              {/* CARD 3: COUNTING */}
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => openMathActivity('counting')}
+                className="rounded-[22px] p-3 bg-gradient-to-br from-[#fdcb6e] via-[#f39c12] to-[#e67e22] text-white shadow-lg flex flex-col justify-between cursor-pointer border-2 border-white/60 border-b-[5px] border-b-[#e67e22]"
+              >
+                <span className="bg-white/25 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider w-max">
+                  COUNTING
+                </span>
+                <div className="h-14 rounded-2xl bg-white/20 flex items-center justify-center my-1">
+                  <Hash className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black font-sans leading-tight">Star Counting</h3>
+                  <p className="text-[9px] text-white/90 font-bold mt-0.5">Count items & match</p>
+                </div>
+                <button className="w-full py-1.5 rounded-xl bg-white text-slate-900 font-black text-[10px] shadow cursor-pointer mt-1">
+                  Count Stars ▶
+                </button>
+              </motion.div>
+
+              {/* CARD 4: ADDITION */}
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => openMathActivity('addition')}
+                className="rounded-[22px] p-3 bg-gradient-to-br from-[#55efc4] via-[#00b894] to-[#10ac84] text-white shadow-lg flex flex-col justify-between cursor-pointer border-2 border-white/60 border-b-[5px] border-b-[#10ac84]"
+              >
+                <span className="bg-white/25 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider w-max">
+                  ADDITION
+                </span>
+                <div className="h-14 rounded-2xl bg-white/20 flex items-center justify-center my-1">
+                  <Plus className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black font-sans leading-tight">Simple Plus</h3>
+                  <p className="text-[9px] text-white/90 font-bold mt-0.5">Add friendly numbers</p>
+                </div>
+                <button className="w-full py-1.5 rounded-xl bg-white text-slate-900 font-black text-[10px] shadow cursor-pointer mt-1">
+                  Add Numbers ▶
+                </button>
+              </motion.div>
+
+              {/* CARD 5: SUBTRACTION */}
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => openMathActivity('subtraction')}
+                className="rounded-[22px] p-3 bg-gradient-to-br from-[#ff7675] via-[#ee5253] to-[#d63031] text-white shadow-lg flex flex-col justify-between cursor-pointer border-2 border-white/60 border-b-[5px] border-b-[#d63031]"
+              >
+                <span className="bg-white/25 text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider w-max">
+                  SUBTRACTION
+                </span>
+                <div className="h-14 rounded-2xl bg-white/20 flex items-center justify-center my-1">
+                  <Minus className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black font-sans leading-tight">Minus Fun</h3>
+                  <p className="text-[9px] text-white/90 font-bold mt-0.5">Take away & solve</p>
+                </div>
+                <button className="w-full py-1.5 rounded-xl bg-white text-slate-900 font-black text-[10px] shadow cursor-pointer mt-1">
+                  Minus Play ▶
+                </button>
+              </motion.div>
+
+            </div>
+
+            <div className="text-center">
+              <span className="text-[10px] font-bold text-slate-400">Earn +10 Stars on every correct math question! ⭐</span>
             </div>
           </div>
         )}
 
-        {/* ================= TAB 2: MATH COUNTING ================= */}
-        {activeTab === 'math' && (
-          <div className="w-full h-full flex flex-col justify-between items-center relative py-1">
-            <div className="w-full flex items-center justify-between px-2">
-              <span className="text-[10px] font-black text-purple-900 uppercase tracking-wider">
-                TAP ITEMS TO COUNT
+        {/* ========================================================================= */}
+        {/* VIEW 2: BEFORE & AFTER NUMBERS GAMEPLAY (1–50) */}
+        {/* ========================================================================= */}
+        {activeMathActivity === 'before-after' && baQuestion && (
+          <div className="w-full h-full flex flex-col items-center justify-between py-1">
+            
+            {/* Question Banner */}
+            <div className="bg-purple-50 border-2 border-purple-200 px-6 py-1.5 rounded-2xl shadow-sm text-center">
+              <span className="text-xs font-bold text-slate-500">Question: </span>
+              <span className="text-base sm:text-lg font-black text-purple-950 font-sans uppercase">
+                What comes <span className="text-purple-600 underline decoration-wavy decoration-amber-400">{baQuestion.type}</span> {baQuestion.number}?
               </span>
-              <button
-                onClick={handleNextMath}
-                className="px-3 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 text-xs font-black flex items-center gap-1 cursor-pointer border border-purple-200 shadow-sm"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Next
-              </button>
             </div>
 
-            <div className="bg-amber-50 border-2 border-amber-200 px-6 py-2 rounded-2xl shadow-sm text-center">
-              <span className="text-2xl font-black text-amber-500 font-['Fredoka'] mr-2">{currentMath.target}</span>
-              <span className="text-base font-black text-slate-800 font-['Fredoka']">{currentMath.name}</span>
+            {/* Large Visual Display: [ ? ] 27 or 34 [ ? ] */}
+            <div className="flex items-center justify-center gap-4 my-2">
+              {baQuestion.type === 'before' ? (
+                <>
+                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-amber-50 border-4 border-dashed border-amber-400 rounded-3xl flex items-center justify-center shadow-inner animate-pulse">
+                    <span className="text-4xl sm:text-5xl font-black text-amber-500">?</span>
+                  </div>
+                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-gradient-to-br from-indigo-500 to-purple-600 border-4 border-white rounded-3xl flex items-center justify-center shadow-lg">
+                    <span className="text-4xl sm:text-5xl font-black text-white font-sans">{baQuestion.number}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-gradient-to-br from-indigo-500 to-purple-600 border-4 border-white rounded-3xl flex items-center justify-center shadow-lg">
+                    <span className="text-4xl sm:text-5xl font-black text-white font-sans">{baQuestion.number}</span>
+                  </div>
+                  <div className="w-22 h-22 sm:w-26 sm:h-26 bg-amber-50 border-4 border-dashed border-amber-400 rounded-3xl flex items-center justify-center shadow-inner animate-pulse">
+                    <span className="text-4xl sm:text-5xl font-black text-amber-500">?</span>
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="flex items-center justify-center gap-3 my-2 flex-wrap">
-              {Array.from({ length: currentMath.target }).map((_, i) => {
-                const isTapped = countedItems.includes(i);
-                return (
-                  <motion.button
-                    key={i}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleTapMathItem(i)}
-                    className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl border-2 transition-all cursor-pointer ${
-                      isTapped
-                        ? 'bg-emerald-400 border-emerald-500 shadow-lg scale-105'
-                        : 'bg-purple-50 border-purple-200 shadow-sm'
-                    }`}
-                  >
-                    {currentMath.emoji}
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            <span className="text-xs font-black text-purple-900">
-              Counted: <span className="text-purple-600">{countedItems.length}</span> of {currentMath.target}
-            </span>
-          </div>
-        )}
-
-        {/* ================= TAB 3: NUMBERS 1 TO 50 ================= */}
-        {activeTab === 'numbers' && (
-          <div className="w-full h-full flex gap-3 min-h-0">
-            <div className="flex-[1.4] flex flex-col justify-between overflow-hidden border-r border-purple-100 pr-2">
-              <div className="flex items-center justify-between shrink-0 mb-1 px-1">
-                <span className="text-[10px] font-black text-purple-900 uppercase tracking-wider">
-                  TAP NUMBERS (1–50) TO HEAR NAME & PRONUNCIATION! 📝
-                </span>
-                <span className="text-[10px] font-extrabold text-emerald-600">1 to 50</span>
-              </div>
-              <div className="flex-1 grid grid-cols-5 gap-1.5 overflow-y-auto no-scrollbar py-0.5 items-center">
-                {NUMBERS_1_TO_50.map((item) => {
-                  const isSelected = selectedNumber50.num === item.num;
-                  return (
-                    <motion.button
-                      key={item.num}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleNumber50Click(item)}
-                      className={`h-14 sm:h-16 rounded-2xl flex flex-col items-center justify-center p-1 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-emerald-500 text-white shadow-lg ring-3 ring-emerald-200 scale-105 border-2 border-white'
-                          : 'bg-emerald-50/70 hover:bg-emerald-100 text-emerald-950 border border-emerald-100'
-                      }`}
-                    >
-                      <span className="text-xl sm:text-2xl font-black font-['Fredoka'] leading-none">{item.num}</span>
-                      <span className="text-[9px] font-black tracking-tight line-clamp-1 mt-0.5">{item.name}</span>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="w-64 sm:w-72 bg-[#F0FDF4] rounded-[28px] p-3.5 border-2 border-emerald-300 border-b-[6px] border-b-emerald-500 shadow-xl flex flex-col justify-between items-center text-center shrink-0">
-              <span className="bg-emerald-500 text-white text-[10px] sm:text-xs font-black px-3 py-0.5 rounded-full uppercase">
-                NUMBER: {selectedNumber50.num}
-              </span>
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-7xl sm:text-8xl font-black text-emerald-600 font-['Fredoka'] leading-none">
-                  {selectedNumber50.num}
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 font-['Fredoka'] mt-2">
-                  {selectedNumber50.name}
-                </h2>
-              </div>
-              <button
-                onClick={() => {
-                  sound.playPop();
-                  sound.speak(`Number ${selectedNumber50.num}! ${selectedNumber50.name}`);
-                }}
-                className="w-full py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 transition-transform"
-              >
-                <Volume2 className="w-4 h-4" /> <span>Say Number</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ================= TAB 4: SHAPES MATCH ================= */}
-        {activeTab === 'shapes' && (
-          <div className="w-full h-full flex items-center justify-around px-4">
-            <div className="w-48 bg-[#F0FBFF] rounded-[24px] p-4 border-2 border-cyan-200 border-b-[5px] border-b-cyan-400 shadow-md text-center flex flex-col items-center justify-center">
-              <span className="text-[10px] font-black text-cyan-700 tracking-wider mb-2">
-                {currentShape.prompt}
-              </span>
-              <span className="text-6xl my-2 drop-shadow-md">{currentShape.icon}</span>
-              <span className="text-sm font-black text-slate-800 font-['Fredoka']">{currentShape.name}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 w-72">
-              {COLOR_OPTIONS.map((col) => (
-                <button
-                  key={col.name}
-                  onClick={() => handleColorChoice(col.name)}
-                  className={`py-3 px-4 rounded-2xl ${col.bg} text-white font-black text-xs shadow-md border-2 border-white cursor-pointer active:scale-95 transition-all text-center flex items-center justify-center gap-1.5`}
+            {/* 4 Large Touch Choice Buttons */}
+            <div className="flex items-center gap-3 my-1">
+              {baQuestion.options.map(opt => (
+                <motion.button
+                  key={opt}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => handleBAGuess(opt)}
+                  className={`w-18 h-18 sm:w-22 sm:h-22 rounded-3xl border-4 border-white flex items-center justify-center text-2xl sm:text-3xl font-black shadow-lg cursor-pointer transition-all ${
+                    baWrongVal === opt
+                      ? 'bg-rose-500 text-white animate-shake ring-4 ring-rose-300'
+                      : 'bg-amber-400 hover:bg-amber-500 text-slate-900 font-sans'
+                  }`}
                 >
-                  <span className="drop-shadow">🎨</span>
-                  <span>{col.name}</span>
+                  {opt}
+                </motion.button>
+              ))}
+            </div>
+
+            <span className="text-[10px] font-bold text-slate-400">Tap the correct number that comes {baQuestion.type}!</span>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* VIEW 3: NUMBERS 1-50 PRESERVED EXPLORER GRID */}
+        {/* ========================================================================= */}
+        {activeMathActivity === 'numbers-50' && (
+          <div className="w-full h-full flex flex-col justify-between p-1">
+            <div className="flex items-center justify-between px-2">
+              <span className="text-xs font-black text-purple-950">Tap any number to speak:</span>
+              <span className="text-xs font-black text-purple-600 bg-purple-50 px-3 py-0.5 rounded-xl border border-purple-200">
+                Selected: {selectedNum50}
+              </span>
+            </div>
+
+            <div className="flex-1 grid grid-cols-10 gap-1.5 p-1 overflow-y-auto no-scrollbar items-center">
+              {Array.from({ length: 50 }, (_, i) => i + 1).map(num => (
+                <button
+                  key={num}
+                  onClick={() => {
+                    sound.playPop();
+                    setSelectedNum50(num);
+                    sound.speak(`${num}`);
+                  }}
+                  className={`h-9 sm:h-10 rounded-xl font-black text-xs sm:text-sm border transition-all cursor-pointer flex items-center justify-center ${
+                    selectedNum50 === num
+                      ? 'bg-purple-600 text-white border-purple-800 scale-105 shadow-md'
+                      : 'bg-slate-50 hover:bg-purple-50 text-slate-800 border-slate-200'
+                  }`}
+                >
+                  {num}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* ================= TAB 5: ANIMALS ================= */}
-        {activeTab === 'animals' && (
-          <div className="w-full h-full flex gap-3 min-h-0">
-            <div className="flex-1 grid grid-cols-3 gap-2 overflow-y-auto no-scrollbar items-center">
-              {ANIMALS_DATA.map((a) => {
-                const isSelected = selectedAnimal.name === a.name;
-                return (
-                  <button
-                    key={a.name}
-                    onClick={() => {
-                      setSelectedAnimal(a);
-                      sound.playPop();
-                      sound.speak(a.soundText);
-                    }}
-                    className={`h-24 rounded-2xl p-2 flex flex-col justify-center items-start text-left border-2 transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-100 border-amber-400 shadow-md ring-2 ring-amber-300'
-                        : 'bg-white border-purple-100 hover:bg-purple-50'
-                    }`}
-                  >
-                    <span className="text-3xl leading-none">{a.icon}</span>
-                    <span className="text-xs font-black text-purple-950 font-['Fredoka'] mt-1 leading-tight">{a.name}</span>
-                    <span className="text-[9px] text-slate-500 font-bold leading-tight">{a.fact.slice(0, 16)}...</span>
-                  </button>
-                );
-              })}
+        {/* ========================================================================= */}
+        {/* VIEW 4: PRESERVED ADDITION / SUBTRACTION / COUNTING GAMES */}
+        {/* ========================================================================= */}
+        {(activeMathActivity === 'counting' || activeMathActivity === 'addition' || activeMathActivity === 'subtraction') && genericMathQ && (
+          <div className="w-full h-full flex flex-col items-center justify-between py-2">
+            <div className="bg-purple-50 border-2 border-purple-200 px-8 py-2 rounded-2xl shadow-sm text-center">
+              <h2 className="text-xl sm:text-2xl font-black text-purple-950 font-sans">
+                {genericMathQ.qText}
+              </h2>
             </div>
 
-            <div className="w-64 bg-[#FFFDF0] rounded-[24px] p-3 border-2 border-amber-200 border-b-[5px] border-b-amber-400 shadow-lg flex flex-col justify-between items-center text-center">
-              <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 rounded-full uppercase">
-                {selectedAnimal.category}
-              </span>
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <span className="text-6xl my-1 drop-shadow-md">{selectedAnimal.icon}</span>
-                <h2 className="text-xl font-black text-slate-900 font-['Fredoka']">{selectedAnimal.name}</h2>
-                <p className="text-[10px] font-bold text-slate-600 mt-1 max-w-[190px]">
-                  {selectedAnimal.fact}
-                </p>
+            {activeMathActivity === 'counting' && (
+              <div className="flex gap-2 my-2 flex-wrap justify-center">
+                {Array.from({ length: genericMathQ.correct }).map((_, i) => (
+                  <span key={i} className="text-4xl animate-bounce-gentle">⭐</span>
+                ))}
               </div>
-              <button
-                onClick={() => {
-                  sound.playPop();
-                  sound.speak(selectedAnimal.soundText);
-                }}
-                className="w-full py-2 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-              >
-                <Volume2 className="w-4 h-4" /> <span>Hear Sound</span>
-              </button>
+            )}
+
+            <div className="flex gap-3 my-2">
+              {genericMathQ.opts.map((opt: number) => (
+                <motion.button
+                  key={opt}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => handleGenericGuess(opt)}
+                  className={`w-20 h-20 sm:w-24 sm:h-24 rounded-3xl border-4 border-white flex items-center justify-center text-3xl font-black shadow-lg cursor-pointer transition-all ${
+                    baWrongVal === opt ? 'bg-rose-400 text-white animate-shake' : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                  }`}
+                >
+                  {opt}
+                </motion.button>
+              ))}
             </div>
+
+            <span className="text-[10px] font-bold text-slate-400">Tap the correct answer!</span>
           </div>
         )}
 
-        {/* Dynamic Celebration Toast */}
-        <AnimatePresence>
-          {celebrationMsg && (
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 20, opacity: 0 }}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-purple-900 text-white px-5 py-2 rounded-2xl shadow-xl font-black text-xs flex items-center gap-2 border-2 border-amber-300"
-            >
-              <span>🎉</span>
-              <span>{celebrationMsg}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* ========================================================================= */}
+        {/* VIEW 5: PHONICS TOPIC */}
+        {/* ========================================================================= */}
+        {!activeMathActivity && activeCategory === 'phonics' && (
+          <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
+            <span className="text-6xl mb-2 animate-bounce-gentle">🔤</span>
+            <h2 className="text-xl font-black text-purple-950 font-sans">ABC & Phonics Adventures</h2>
+            <p className="text-xs font-bold text-slate-500 mt-1 max-w-sm">
+              Explore alphabet letters, phonetic sounds, and vocabulary words in Color Challenges and Adventure World!
+            </p>
+          </div>
+        )}
 
       </div>
     </div>
