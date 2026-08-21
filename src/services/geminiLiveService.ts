@@ -157,8 +157,8 @@ Use cheerful tone with simple words.
       this.processor.connect(this.audioContext.destination);
     } catch (err: any) {
       console.error('Microphone error:', err);
-      this.setState('error', 'Please allow microphone access to talk.');
-      if (this.onError) this.onError('Microphone permission denied.');
+      this.setState('error', 'Microphone permission is needed so Buddy can hear you 🎤');
+      if (this.onError) this.onError('Microphone permission is needed so Buddy can hear you 🎤');
     }
   }
 
