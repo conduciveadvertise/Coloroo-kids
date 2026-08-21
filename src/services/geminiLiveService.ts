@@ -69,7 +69,7 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       }
 
       console.log('[AIBuddy] creating Gemini Live session');
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${ephemeralToken}`;
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(ephemeralToken)}`;
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
