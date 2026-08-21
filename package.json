@@ -5,7 +5,7 @@
   "main": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "expo start",
+    "start": "node server/index.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -13,7 +13,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "server": "node server/index.js"
   },
   "dependencies": {
     "@capacitor-community/text-to-speech": "^8.0.2",
@@ -21,7 +22,7 @@
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@expo/vector-icons": "^15.1.1",
-    "@google/genai": "^2.4.0",
+    "@google/genai": "^2.18.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@tailwindcss/vite": "^4.1.14",
     "@types/canvas-confetti": "^1.9.0",
@@ -38,7 +39,8 @@
     "react-native": "^0.87.0",
     "react-native-svg": "^15.15.5",
     "react-native-web": "^0.21.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

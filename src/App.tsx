@@ -41,6 +41,7 @@ import { ParentDashboard } from './components/screens/ParentDashboard';
 import { BuddyScreen } from './components/screens/BuddyScreen';
 import { ParentGateModal } from './components/ParentGateModal';
 import { MissionsAndBadgesModal } from './components/screens/MissionsAndBadgesModal';
+import { AIBuddyScreen } from './components/screens/AIBuddyScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
@@ -299,6 +300,12 @@ export default function App() {
           {currentScreen === 'trophies' && (
             <TrophyScreen
               profile={profile}
+              onBack={() => setCurrentScreen('home')}
+            />
+          )}
+
+          {currentScreen === 'ai-buddy' && (
+            <AIBuddyScreen
               onBack={() => setCurrentScreen('home')}
             />
           )}

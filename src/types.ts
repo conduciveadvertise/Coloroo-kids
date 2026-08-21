@@ -1,4 +1,4 @@
-export type ScreenType = 'home' | 'coloring' | 'learning' | 'challenges' | 'games' | 'adventure' | 'trophies' | 'parent' | 'buddy' | 'missions';
+export type ScreenType = 'home' | 'ai-buddy' | 'coloring' | 'learning' | 'challenges' | 'games' | 'adventure' | 'trophies' | 'parent' | 'buddy' | 'missions';
 
 export interface ChildProfile {
   name: string;
