@@ -1,6 +1,7 @@
 /**
  * Gemini Live API WebSocket Client for Coloroo AI Buddy
- * Fully instrumented for debugging connection, audio capture, and response playback.
+ * Fully instrumented with 16kHz PCM downsampler, turn-completion handling,
+ * and comprehensive diagnostic logging for Android WebView.
  */
 
 export interface LiveMessageTranscript {
@@ -20,12 +21,14 @@ export type LiveConnectionState =
 
 export class GeminiLiveSession {
   private ws: WebSocket | null = null;
-  private audioContext: AudioContext | null = null;
+  private inputAudioContext: AudioContext | null = null;
+  private outputAudioContext: AudioContext | null = null;
   private micStream: MediaStream | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private scheduledAudioSources: AudioBufferSourceNode[] = [];
   private nextPlayTime = 0;
+  private frameCount = 0;
   private isConnected = false;
 
   public onStateChange: ((state: LiveConnectionState, statusMsg?: string) => void) | null = null;
@@ -43,12 +46,12 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
 `;
 
   public async connect(): Promise<void> {
-    console.log('[AIBuddy] Connecting session requested...');
+    console.log('[AIBuddy] TALK/CONNECT PRESSED');
     this.setState('connecting', 'Buddy is getting ready...');
 
     try {
       const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids-production.up.railway.app';
-      console.log(`[AIBuddy] Requesting Railway token from: ${backendUrl}/api/ai-buddy/token`);
+      console.log(`[AIBuddy] requesting ephemeral token from: ${backendUrl}/api/ai-buddy/token`);
       
       const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
       if (!res.ok) {
@@ -59,19 +62,18 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       const data = await res.json();
       const ephemeralToken = data.token;
       const model = data.model || 'gemini-3.1-flash-live-preview';
-      console.log('[AIBuddy] Railway token received successfully.');
+      console.log('[AIBuddy] token received');
 
       if (!ephemeralToken) {
-        throw new Error('Ephemeral token is missing from server response.');
+        throw new Error('Ephemeral token missing from backend response');
       }
 
+      console.log('[AIBuddy] creating Gemini Live session');
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${ephemeralToken}`;
-      console.log('[AIBuddy] Connecting to Gemini Live WebSocket...');
-
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('[AIBuddy] Gemini Live WebSocket connected.');
+        console.log('[AIBuddy] Gemini Live connection opened');
         this.isConnected = true;
         this.sendInitialSetup(model);
       };
@@ -86,20 +88,20 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       };
 
       this.ws.onclose = (e) => {
-        console.log(`[AIBuddy] WebSocket closed. Code: ${e.code}, Reason: ${e.reason}`);
+        console.log(`[AIBuddy] Gemini session closed code = ${e.code}, reason = ${e.reason}`);
         this.isConnected = false;
         this.setState('disconnected', 'Buddy is resting.');
         this.stopAudioCapture();
       };
     } catch (err: any) {
-      console.error('[AIBuddy ERROR] connect() failed:', err);
+      console.error('[AIBuddy ERROR] connect failed:', err);
       this.setState('error', 'Buddy needs internet to talk right now.');
       if (this.onError) this.onError(err.message || 'Connection failed');
     }
   }
 
   private sendInitialSetup(model: string) {
-    console.log(`[AIBuddy] Sending initial setup for model: ${model}`);
+    console.log('[AIBuddy] sending Gemini setup');
     const setupMsg = {
       setup: {
         model: `models/${model}`,
@@ -119,35 +121,61 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       }
     };
     this.ws?.send(JSON.stringify(setupMsg));
+    console.log('[AIBuddy] Gemini setup completed');
     this.setState('ready', 'Tap to Talk with Buddy! 🎤');
   }
 
   public async startTalking(): Promise<void> {
     console.log('[AIBuddy] startTalking() called');
+    this.frameCount = 0;
+
     try {
-      this.initAudioContext();
-      console.log('[AIBuddy] Requesting navigator.mediaDevices.getUserMedia...');
-      
+      console.log('[AIBuddy] requesting microphone stream');
       this.micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
-          sampleRate: 16000,
           echoCancellation: true,
-          noiseSuppression: true
+          noiseSuppression: true,
+          autoGainControl: true
         }
       });
 
       const audioTracks = this.micStream.getAudioTracks();
-      console.log(`[AIBuddy] Mic stream active. Audio tracks: ${audioTracks.length}, State: ${audioTracks[0]?.readyState}`);
+      console.log('[AIBuddy] microphone stream obtained');
+      console.log(`[AIBuddy] stream.getAudioTracks().length: ${audioTracks.length}`);
+      if (audioTracks[0]) {
+        console.log(`[AIBuddy] audioTrack.readyState: ${audioTracks[0].readyState}`);
+        console.log(`[AIBuddy] audioTrack.enabled: ${audioTracks[0].enabled}`);
+        console.log(`[AIBuddy] audioTrack.muted: ${audioTracks[0].muted}`);
+      }
 
-      if (!this.audioContext) return;
-      this.source = this.audioContext.createMediaStreamSource(this.micStream);
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      console.log('[AIBuddy] starting microphone capture');
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      this.inputAudioContext = new AudioCtx();
+      console.log(`[AIBuddy] inputAudioContext.sampleRate: ${this.inputAudioContext.sampleRate}`);
+
+      if (this.inputAudioContext.state === 'suspended') {
+        await this.inputAudioContext.resume();
+      }
+
+      this.source = this.inputAudioContext.createMediaStreamSource(this.micStream);
+      this.processor = this.inputAudioContext.createScriptProcessor(4096, 1, 1);
 
       this.processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
-        const pcm16 = this.floatTo16BitPCM(inputData);
+        this.frameCount++;
+
+        if (this.frameCount <= 3 || this.frameCount % 50 === 0) {
+          console.log(`[AIBuddy AUDIO] frame received #${this.frameCount}, raw samples: ${inputData.length}`);
+        }
+
+        // Downsample from hardware rate (e.g. 48kHz/44.1kHz) to 16kHz Linear PCM
+        const pcm16 = this.downsampleTo16kPCM(inputData, this.inputAudioContext!.sampleRate);
         const base64Audio = this.arrayBufferToBase64(pcm16);
+
+        if (this.frameCount <= 3 || this.frameCount % 50 === 0) {
+          console.log(`[AIBuddy AUDIO] sending audio chunk #${this.frameCount}, size = ${base64Audio.length}, mimeType = audio/pcm;rate=16000`);
+        }
 
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           const audioChunk = {
@@ -165,36 +193,37 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       };
 
       this.source.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+      this.processor.connect(this.inputAudioContext.destination);
+
+      console.log('[AIBuddy] audio capture started');
       this.setState('listening', 'Listening to you... 👂');
-      console.log('[AIBuddy] Audio pipeline active and streaming PCM...');
     } catch (err: any) {
-      console.error('[AIBuddy ERROR] getUserMedia/AudioContext error:', err);
+      console.error('[AIBuddy ERROR] getUserMedia/Audio capture error:', err);
       this.setState('error', 'Microphone permission is needed so Buddy can hear you 🎤');
       if (this.onError) this.onError('Microphone permission denied.');
     }
   }
 
   public stopTalking(): void {
-    console.log('[AIBuddy] stopTalking() called - finalizing client audio turn');
+    console.log('[AIBuddy] stopTalking() called');
+    if (this.frameCount === 0) {
+      console.log('[AIBuddy ERROR] MICROPHONE AUDIO FRAMES = 0');
+    } else {
+      console.log(`[AIBuddy] Total audio frames generated: ${this.frameCount}`);
+    }
+
     this.stopAudioCapture();
     this.setState('thinking', 'Buddy is thinking... 🤖');
 
-    // Send explicit clientContent turn signal so Gemini Live produces a response
+    // Signal client turn completion over WebSocket
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const endTurnMsg = {
+      const turnMsg = {
         clientContent: {
-          turns: [
-            {
-              role: 'user',
-              parts: [{ text: 'Respond to the spoken audio.' }]
-            }
-          ],
           turnComplete: true
         }
       };
-      this.ws.send(JSON.stringify(endTurnMsg));
-      console.log('[AIBuddy] Sent turnComplete message to Gemini Live.');
+      console.log('[AIBuddy] sending clientContent turnComplete: true');
+      this.ws.send(JSON.stringify(turnMsg));
     }
   }
 
@@ -209,6 +238,10 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       this.processor = null;
       this.source = null;
     }
+    if (this.inputAudioContext && this.inputAudioContext.state !== 'closed') {
+      this.inputAudioContext.close();
+      this.inputAudioContext = null;
+    }
   }
 
   private async handleServerMessage(data: any): Promise<void> {
@@ -222,21 +255,32 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
 
     if (!msg) return;
 
+    if (msg.serverContent) {
+      console.log('[AIBuddy GEMINI EVENT] serverContent received');
+    }
+    if (msg.toolCall) {
+      console.log('[AIBuddy GEMINI EVENT] toolCall received');
+    }
+
+    // Handle Interruption
     if (msg.serverContent?.interrupted) {
-      console.log('[AIBuddy] Server audio interrupted by user.');
+      console.log('[AIBuddy GEMINI EVENT] interruption detected');
       this.stopAllAudioPlayback();
       this.setState('ready', 'Listening...');
       return;
     }
 
+    // Handle Model Content (Text + Audio)
     const parts = msg.serverContent?.modelTurn?.parts || [];
     for (const part of parts) {
-      if (part.text && this.onTranscript) {
-        console.log('[AIBuddy] Received text transcript:', part.text);
-        this.onTranscript({ sender: 'buddy', text: part.text });
+      if (part.text) {
+        console.log('[AIBuddy GEMINI EVENT] Text transcript:', part.text);
+        if (this.onTranscript) {
+          this.onTranscript({ sender: 'buddy', text: part.text });
+        }
       }
       if (part.inlineData && part.inlineData.data) {
-        console.log('[AIBuddy] Received PCM audio chunk from Gemini.');
+        console.log(`[AIBuddy GEMINI EVENT] Native PCM audio chunk received (size: ${part.inlineData.data.length})`);
         this.setState('speaking', 'Buddy is speaking... 🔊');
         const pcmData = this.base64ToArrayBuffer(part.inlineData.data);
         this.playPCMChunk(pcmData, 24000);
@@ -244,7 +288,7 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     }
 
     if (msg.serverContent?.turnComplete) {
-      console.log('[AIBuddy] Server turn complete.');
+      console.log('[AIBuddy GEMINI EVENT] turn complete');
       setTimeout(() => {
         if (this.scheduledAudioSources.length === 0) {
           this.setState('ready', 'Tap to Talk! 🎤');
@@ -253,20 +297,20 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     }
   }
 
-  private initAudioContext(): void {
-    if (!this.audioContext || this.audioContext.state === 'closed') {
+  private initOutputAudioContext(): void {
+    if (!this.outputAudioContext || this.outputAudioContext.state === 'closed') {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.audioContext = new AudioCtx({ sampleRate: 24000 });
-      this.nextPlayTime = this.audioContext.currentTime;
+      this.outputAudioContext = new AudioCtx({ sampleRate: 24000 });
+      this.nextPlayTime = this.outputAudioContext.currentTime;
     }
-    if (this.audioContext.state === 'suspended') {
-      this.audioContext.resume();
+    if (this.outputAudioContext.state === 'suspended') {
+      this.outputAudioContext.resume();
     }
   }
 
   private playPCMChunk(arrayBuffer: ArrayBuffer, sampleRate = 24000): void {
-    this.initAudioContext();
-    if (!this.audioContext) return;
+    this.initOutputAudioContext();
+    if (!this.outputAudioContext) return;
 
     const int16Array = new Int16Array(arrayBuffer);
     const float32Array = new Float32Array(int16Array.length);
@@ -274,14 +318,14 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       float32Array[i] = int16Array[i] / 32768.0;
     }
 
-    const audioBuffer = this.audioContext.createBuffer(1, float32Array.length, sampleRate);
+    const audioBuffer = this.outputAudioContext.createBuffer(1, float32Array.length, sampleRate);
     audioBuffer.getChannelData(0).set(float32Array);
 
-    const source = this.audioContext.createBufferSource();
+    const source = this.outputAudioContext.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.audioContext.destination);
+    source.connect(this.outputAudioContext.destination);
 
-    const startTime = Math.max(this.audioContext.currentTime, this.nextPlayTime);
+    const startTime = Math.max(this.outputAudioContext.currentTime, this.nextPlayTime);
     source.start(startTime);
     this.nextPlayTime = startTime + audioBuffer.duration;
 
@@ -299,22 +343,22 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       try { source.stop(); } catch {}
     });
     this.scheduledAudioSources = [];
-    if (this.audioContext) {
-      this.nextPlayTime = this.audioContext.currentTime;
+    if (this.outputAudioContext) {
+      this.nextPlayTime = this.outputAudioContext.currentTime;
     }
   }
 
   public disconnect(): void {
-    console.log('[AIBuddy] Session disconnecting and clearing resources.');
+    console.log('[AIBuddy] session disconnecting');
     this.stopAudioCapture();
     this.stopAllAudioPlayback();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
-    if (this.audioContext && this.audioContext.state !== 'closed') {
-      this.audioContext.close();
-      this.audioContext = null;
+    if (this.outputAudioContext && this.outputAudioContext.state !== 'closed') {
+      this.outputAudioContext.close();
+      this.outputAudioContext = null;
     }
     this.setState('idle', 'Ready to connect');
   }
@@ -323,6 +367,32 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     if (this.onStateChange) {
       this.onStateChange(state, msg);
     }
+  }
+
+  private downsampleTo16kPCM(buffer: Float32Array, inputSampleRate: number): ArrayBuffer {
+    if (inputSampleRate === 16000) {
+      return this.floatTo16BitPCM(buffer);
+    }
+    const sampleRateRatio = inputSampleRate / 16000;
+    const newLength = Math.round(buffer.length / sampleRateRatio);
+    const result = new Float32Array(newLength);
+    let offsetResult = 0;
+    let offsetBuffer = 0;
+
+    while (offsetResult < result.length) {
+      const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+      let accum = 0;
+      let count = 0;
+      for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+        accum += buffer[i];
+        count++;
+      }
+      result[offsetResult] = count > 0 ? accum / count : 0;
+      offsetResult++;
+      offsetBuffer = nextOffsetBuffer;
+    }
+
+    return this.floatTo16BitPCM(result);
   }
 
   private floatTo16BitPCM(input: Float32Array): ArrayBuffer {

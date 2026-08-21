@@ -34,7 +34,7 @@ export const AIBuddyScreen: React.FC<AIBuddyScreenProps> = ({ onBack }) => {
     session.onStateChange = (st, msg) => {
       setState(st);
       if (msg) setStatusMessage(msg);
-      if (st === 'ready' || st === 'error' || st === 'idle') {
+      if (st === 'ready' || st === 'error' || st === 'idle' || st === 'speaking') {
         setIsRecording(false);
       }
     };
