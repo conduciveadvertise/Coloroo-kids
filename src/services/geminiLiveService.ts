@@ -49,7 +49,7 @@ Use cheerful tone with simple words.
     this.setState('connecting', 'Buddy is getting ready...');
 
     try {
-      const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids-production.up.railway.app';
       const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
       
       if (!res.ok) {
