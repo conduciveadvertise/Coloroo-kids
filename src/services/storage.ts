@@ -47,7 +47,7 @@ const DEFAULT_SETTINGS: ParentSettings = {
 
 const DEFAULT_ADVENTURE: AdventureProgress = {
   unlockedWorlds: ['forest'],
-  completedLevels: { forest: [] },
+  completedLevels: { forest: [], ocean: [], space: [], dino: [] },
   currentLevel: 1
 };
 
@@ -111,28 +111,46 @@ export const saveStoredArtworks = (artworks: SavedArtwork[]): void => {
   } catch {}
 };
 
-// --- ADVENTURE PROGRESS WITH AUTO-MIGRATION & UNLOCK DERIVATION ---
+// --- ADVENTURE PROGRESS WITH FOREST, OCEAN, SPACE & DINO PROGRESSION ---
 export const getStoredAdventureProgress = (): AdventureProgress => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ADVENTURE);
     if (!raw) return DEFAULT_ADVENTURE;
     const parsed = JSON.parse(raw);
     
-    const completedLevels = parsed.completedLevels || { forest: [] };
+    const completedLevels = parsed.completedLevels || { forest: [], ocean: [], space: [], dino: [] };
     const forestLevels: number[] = Array.isArray(completedLevels.forest) ? completedLevels.forest : [];
+    const oceanLevels: number[] = Array.isArray(completedLevels.ocean) ? completedLevels.ocean : [];
+    const spaceLevels: number[] = Array.isArray(completedLevels.space) ? completedLevels.space : [];
+    const dinoLevels: number[] = Array.isArray(completedLevels.dino) ? completedLevels.dino : [];
     
     let unlockedWorlds: ('forest' | 'ocean' | 'space' | 'dino')[] = Array.isArray(parsed.unlockedWorlds) 
       ? [...parsed.unlockedWorlds] 
       : ['forest'];
 
-    // Auto-unlock Ocean if Forest Level 5 is completed or all 5 levels are finished
+    // 1. Unlock Ocean if Forest is complete
     if ((forestLevels.includes(5) || forestLevels.length >= 5) && !unlockedWorlds.includes('ocean')) {
       unlockedWorlds.push('ocean');
     }
 
+    // 2. Unlock Space if Ocean Challenge is complete
+    if ((oceanLevels.includes(6) || oceanLevels.length >= 6) && !unlockedWorlds.includes('space')) {
+      unlockedWorlds.push('space');
+    }
+
+    // 3. Unlock Dino if Space Challenge is complete
+    if ((spaceLevels.includes(6) || spaceLevels.length >= 6) && !unlockedWorlds.includes('dino')) {
+      unlockedWorlds.push('dino');
+    }
+
     return {
       unlockedWorlds,
-      completedLevels,
+      completedLevels: {
+        forest: forestLevels,
+        ocean: oceanLevels,
+        space: spaceLevels,
+        dino: dinoLevels
+      },
       currentLevel: typeof parsed.currentLevel === 'number' ? parsed.currentLevel : 1
     };
   } catch {
@@ -143,15 +161,32 @@ export const getStoredAdventureProgress = (): AdventureProgress => {
 export const saveStoredAdventureProgress = (progress: AdventureProgress): void => {
   try {
     const forestLevels: number[] = progress.completedLevels?.forest || [];
+    const oceanLevels: number[] = progress.completedLevels?.ocean || [];
+    const spaceLevels: number[] = progress.completedLevels?.space || [];
+    const dinoLevels: number[] = progress.completedLevels?.dino || [];
     let unlocked = [...(progress.unlockedWorlds || ['forest'])];
     
     if ((forestLevels.includes(5) || forestLevels.length >= 5) && !unlocked.includes('ocean')) {
       unlocked.push('ocean');
     }
 
+    if ((oceanLevels.includes(6) || oceanLevels.length >= 6) && !unlocked.includes('space')) {
+      unlocked.push('space');
+    }
+
+    if ((spaceLevels.includes(6) || spaceLevels.length >= 6) && !unlocked.includes('dino')) {
+      unlocked.push('dino');
+    }
+
     const payload: AdventureProgress = {
       ...progress,
-      unlockedWorlds: unlocked
+      unlockedWorlds: unlocked,
+      completedLevels: {
+        forest: forestLevels,
+        ocean: oceanLevels,
+        space: spaceLevels,
+        dino: dinoLevels
+      }
     };
     localStorage.setItem(STORAGE_KEYS.ADVENTURE, JSON.stringify(payload));
   } catch {}

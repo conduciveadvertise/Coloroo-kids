@@ -13,10 +13,38 @@ import {
   Compass,
   Waves,
   Rocket,
-  Flame
+  Home
 } from 'lucide-react';
 import { WorldId, AdventureProgress } from '../../types';
 import { WORLDS_INFO, FOREST_LEVELS, AdventureLevelDef } from '../../data/adventureData';
+import {
+  OCEAN_LEVELS,
+  OCEAN_COLOR_QUESTIONS,
+  OCEAN_COUNT_QUESTIONS,
+  OCEAN_WORD_QUESTIONS,
+  CORAL_QUEST_STEPS,
+  OCEAN_BOSS_QUESTIONS,
+  OceanLevelDef
+} from '../../data/oceanAdventureData';
+import {
+  SPACE_LEVELS,
+  SPACE_COLOR_QUESTIONS,
+  SPACE_COUNT_QUESTIONS,
+  SPACE_WORD_QUESTIONS,
+  GALAXY_QUEST_STEPS,
+  SPACE_BOSS_QUESTIONS,
+  SpaceLevelDef
+} from '../../data/spaceAdventureData';
+import {
+  DINO_LEVELS,
+  DINO_COLOR_QUESTIONS,
+  DINO_COUNT_QUESTIONS,
+  DINO_WORD_QUESTIONS,
+  JURASSIC_QUEST_STEPS,
+  DINO_BOSS_QUESTIONS,
+  DINO_LEVELS as DinoLevelsArray,
+  DinoLevelDef
+} from '../../data/dinoWorldData';
 import {
   getStoredAdventureProgress,
   saveStoredAdventureProgress
@@ -35,35 +63,66 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
 }) => {
   const [progress, setProgress] = useState<AdventureProgress>(getStoredAdventureProgress);
   const [selectedWorld, setSelectedWorld] = useState<WorldId>('forest');
-  const [activeLevel, setActiveLevel] = useState<AdventureLevelDef | null>(null);
+  const [activeLevel, setActiveLevel] = useState<AdventureLevelDef | OceanLevelDef | SpaceLevelDef | DinoLevelDef | null>(null);
 
   // Level Play State
   const [levelSuccess, setLevelSuccess] = useState(false);
+  const [genericQuestionIndex, setGenericQuestionIndex] = useState(0);
+  const [questStep, setQuestStep] = useState(0);
   const [bossStep, setBossStep] = useState(0);
+  const [isGrandFinaleModal, setIsGrandFinaleModal] = useState(false);
+
+  // Memory Game Sub-State
+  const [memoryCards, setMemoryCards] = useState<any[]>([]);
+  const [flippedIds, setFlippedIds] = useState<number[]>([]);
+  const [matchedPairs, setMatchedPairs] = useState<number>(0);
 
   useEffect(() => {
     saveStoredAdventureProgress(progress);
   }, [progress]);
 
-  // Derived Single Source of Truth for Completed Levels
   const completedForest = useMemo(() => {
     return progress.completedLevels['forest'] || [];
+  }, [progress.completedLevels]);
+
+  const completedOcean = useMemo(() => {
+    return progress.completedLevels['ocean'] || [];
+  }, [progress.completedLevels]);
+
+  const completedSpace = useMemo(() => {
+    return progress.completedLevels['space'] || [];
+  }, [progress.completedLevels]);
+
+  const completedDino = useMemo(() => {
+    return progress.completedLevels['dino'] || [];
   }, [progress.completedLevels]);
 
   const isForestComplete = useMemo(() => {
     return completedForest.includes(5) || completedForest.length >= 5;
   }, [completedForest]);
 
-  // Dynamic World Unlock Evaluator
+  const isOceanComplete = useMemo(() => {
+    return completedOcean.includes(6) || completedOcean.length >= 6;
+  }, [completedOcean]);
+
+  const isSpaceComplete = useMemo(() => {
+    return completedSpace.includes(6) || completedSpace.length >= 6;
+  }, [completedSpace]);
+
+  const isDinoComplete = useMemo(() => {
+    return completedDino.includes(6) || completedDino.length >= 6;
+  }, [completedDino]);
+
   const isWorldUnlocked = (worldId: WorldId): boolean => {
     if (worldId === 'forest') return true;
     if (worldId === 'ocean') return isForestComplete || progress.unlockedWorlds.includes('ocean');
-    if (worldId === 'space') return progress.unlockedWorlds.includes('space');
-    if (worldId === 'dino') return progress.unlockedWorlds.includes('dino');
+    if (worldId === 'space') return isOceanComplete || progress.unlockedWorlds.includes('space');
+    if (worldId === 'dino') return isSpaceComplete || progress.unlockedWorlds.includes('dino');
     return false;
   };
 
-  const handleSelectLevel = (level: AdventureLevelDef) => {
+  // Level Selection Handlers
+  const handleSelectForestLevel = (level: AdventureLevelDef) => {
     const isCompleted = completedForest.includes(level.id);
     const isAvailable = level.id === 1 || completedForest.includes(level.id - 1) || isCompleted;
 
@@ -76,11 +135,103 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     sound.playPop();
     sound.speak(`Level ${level.id}! ${level.title}!`);
     setActiveLevel(level);
-    setBossStep(0);
     setLevelSuccess(false);
   };
 
-  const handleCompleteLevel = (levelId: number) => {
+  const handleSelectOceanLevel = (level: OceanLevelDef) => {
+    const isCompleted = completedOcean.includes(level.id);
+    const isAvailable = level.id === 1 || completedOcean.includes(level.id - 1) || isCompleted;
+
+    if (!isAvailable) {
+      sound.playPop();
+      sound.speak("This ocean quest is locked! Complete earlier levels first!");
+      return;
+    }
+
+    sound.playPop();
+    sound.speak(`Ocean Quest ${level.id}! ${level.title}!`);
+    setActiveLevel(level);
+    setGenericQuestionIndex(0);
+    setQuestStep(0);
+    setBossStep(0);
+    setLevelSuccess(false);
+
+    if (level.type === 'ocean-match') {
+      const items = [
+        { id: 1, pairId: 1, name: 'Octopus', emoji: '🐙' },
+        { id: 2, pairId: 1, name: 'Octopus', emoji: '🐙' },
+        { id: 3, pairId: 2, name: 'Dolphin', emoji: '🐬' },
+        { id: 4, pairId: 2, name: 'Dolphin', emoji: '🐬' }
+      ].sort(() => Math.random() - 0.5).map(c => ({ ...c, isFlipped: false, isMatched: false }));
+      setMemoryCards(items);
+      setFlippedIds([]);
+      setMatchedPairs(0);
+    }
+  };
+
+  const handleSelectSpaceLevel = (level: SpaceLevelDef) => {
+    const isCompleted = completedSpace.includes(level.id);
+    const isAvailable = level.id === 1 || completedSpace.includes(level.id - 1) || isCompleted;
+
+    if (!isAvailable) {
+      sound.playPop();
+      sound.speak("This space quest is locked! Complete earlier levels first!");
+      return;
+    }
+
+    sound.playPop();
+    sound.speak(`Space Quest ${level.id}! ${level.title}!`);
+    setActiveLevel(level);
+    setGenericQuestionIndex(0);
+    setQuestStep(0);
+    setBossStep(0);
+    setLevelSuccess(false);
+
+    if (level.type === 'space-match') {
+      const items = [
+        { id: 1, pairId: 1, name: 'Star', emoji: '🌟' },
+        { id: 2, pairId: 1, name: 'Star', emoji: '🌟' },
+        { id: 3, pairId: 2, name: 'Moon', emoji: '🌙' },
+        { id: 4, pairId: 2, name: 'Moon', emoji: '🌙' }
+      ].sort(() => Math.random() - 0.5).map(c => ({ ...c, isFlipped: false, isMatched: false }));
+      setMemoryCards(items);
+      setFlippedIds([]);
+      setMatchedPairs(0);
+    }
+  };
+
+  const handleSelectDinoLevel = (level: DinoLevelDef) => {
+    const isCompleted = completedDino.includes(level.id);
+    const isAvailable = level.id === 1 || completedDino.includes(level.id - 1) || isCompleted;
+
+    if (!isAvailable) {
+      sound.playPop();
+      sound.speak("This dino quest is locked! Complete earlier levels first!");
+      return;
+    }
+
+    sound.playPop();
+    sound.speak(`Dino Quest ${level.id}! ${level.title}!`);
+    setActiveLevel(level);
+    setGenericQuestionIndex(0);
+    setQuestStep(0);
+    setBossStep(0);
+    setLevelSuccess(false);
+
+    if (level.type === 'dino-match') {
+      const items = [
+        { id: 1, pairId: 1, name: 'T-Rex', emoji: '🦖' },
+        { id: 2, pairId: 1, name: 'T-Rex', emoji: '🦖' },
+        { id: 3, pairId: 2, name: 'Bronto', emoji: '🦕' },
+        { id: 4, pairId: 2, name: 'Bronto', emoji: '🦕' }
+      ].sort(() => Math.random() - 0.5).map(c => ({ ...c, isFlipped: false, isMatched: false }));
+      setMemoryCards(items);
+      setFlippedIds([]);
+      setMatchedPairs(0);
+    }
+  };
+
+  const handleCompleteForestLevel = (levelId: number) => {
     sound.playFanfare();
     setLevelSuccess(true);
     onAddStars(10);
@@ -94,7 +245,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
       updatedWorlds = [...updatedWorlds, 'ocean'];
       sound.speak("World Complete! You unlocked Ocean World!");
     } else {
-      sound.speak(`Level complete! You earned 10 stars!`);
+      sound.speak("Level complete! You earned 10 stars!");
     }
 
     const nextProgress: AdventureProgress = {
@@ -111,9 +262,443 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
     saveStoredAdventureProgress(nextProgress);
   };
 
-  // Level Gameplay Sandbox
-  const renderLevelContent = (lvl: AdventureLevelDef) => {
-    // Level 1: ABC
+  const handleCompleteOceanLevel = (levelId: number) => {
+    sound.playFanfare();
+    setLevelSuccess(true);
+    onAddStars(15);
+    try { confetti({ particleCount: 80, spread: 85, origin: { y: 0.6 } }); } catch {}
+
+    const newCompleted = Array.from(new Set([...completedOcean, levelId]));
+    const isNowOceanFinished = newCompleted.includes(6) || newCompleted.length >= 6;
+
+    let updatedWorlds = progress.unlockedWorlds;
+    if (isNowOceanFinished && !updatedWorlds.includes('space')) {
+      updatedWorlds = [...updatedWorlds, 'space'];
+      sound.speak("Spectacular! Ocean World completed! Space World is now UNLOCKED!");
+    } else {
+      sound.speak("Great job! Ocean quest complete! +15 Stars!");
+    }
+
+    const nextProgress: AdventureProgress = {
+      ...progress,
+      unlockedWorlds: updatedWorlds,
+      completedLevels: {
+        ...progress.completedLevels,
+        ocean: newCompleted
+      }
+    };
+
+    setProgress(nextProgress);
+    saveStoredAdventureProgress(nextProgress);
+  };
+
+  const handleCompleteSpaceLevel = (levelId: number) => {
+    sound.playFanfare();
+    setLevelSuccess(true);
+    onAddStars(20);
+    try { confetti({ particleCount: 90, spread: 90, origin: { y: 0.6 } }); } catch {}
+
+    const newCompleted = Array.from(new Set([...completedSpace, levelId]));
+    const isNowSpaceFinished = newCompleted.includes(6) || newCompleted.length >= 6;
+
+    let updatedWorlds = progress.unlockedWorlds;
+    if (isNowSpaceFinished && !updatedWorlds.includes('dino')) {
+      updatedWorlds = [...updatedWorlds, 'dino'];
+      sound.speak("Cosmic Champion! Space World completed! Dino World is now UNLOCKED!");
+    } else {
+      sound.speak("Cosmic Victory! Space quest complete! +20 Stars!");
+    }
+
+    const nextProgress: AdventureProgress = {
+      ...progress,
+      unlockedWorlds: updatedWorlds,
+      completedLevels: {
+        ...progress.completedLevels,
+        space: newCompleted
+      }
+    };
+
+    setProgress(nextProgress);
+    saveStoredAdventureProgress(nextProgress);
+  };
+
+  const handleCompleteDinoLevel = (levelId: number) => {
+    sound.playFanfare();
+    onAddStars(25);
+    try { confetti({ particleCount: 100, spread: 100, origin: { y: 0.6 } }); } catch {}
+
+    const newCompleted = Array.from(new Set([...completedDino, levelId]));
+    const isNowDinoFinished = newCompleted.includes(6) || newCompleted.length >= 6;
+
+    const nextProgress: AdventureProgress = {
+      ...progress,
+      completedLevels: {
+        ...progress.completedLevels,
+        dino: newCompleted
+      }
+    };
+
+    setProgress(nextProgress);
+    saveStoredAdventureProgress(nextProgress);
+
+    if (isNowDinoFinished && levelId === 6) {
+      setIsGrandFinaleModal(true);
+      sound.speak("AMAZING! You completed all Dino World adventures! You are a Super Dino Explorer!");
+    } else {
+      setLevelSuccess(true);
+      sound.speak("Roaaar! Dino quest complete! +25 Stars!");
+    }
+  };
+
+  // Memory Match Card Tap
+  const handleMemoryTap = (cardId: number, world: 'ocean' | 'space' | 'dino') => {
+    if (flippedIds.length === 2) return;
+    const clicked = memoryCards.find(c => c.id === cardId);
+    if (!clicked || clicked.isFlipped || clicked.isMatched) return;
+
+    sound.playCardFlip();
+    const updated = memoryCards.map(c => c.id === cardId ? { ...c, isFlipped: true } : c);
+    setMemoryCards(updated);
+
+    const newFlipped = [...flippedIds, cardId];
+    setFlippedIds(newFlipped);
+
+    if (newFlipped.length === 2) {
+      const c1 = updated.find(c => c.id === newFlipped[0])!;
+      const c2 = updated.find(c => c.id === newFlipped[1])!;
+
+      if (c1.pairId === c2.pairId) {
+        setTimeout(() => {
+          sound.playCorrect();
+          sound.speak(`${c1.name}!`);
+          setMemoryCards(prev => prev.map(c => c.id === c1.id || c.id === c2.id ? { ...c, isMatched: true } : c));
+          setFlippedIds([]);
+          const nextMatches = matchedPairs + 1;
+          setMatchedPairs(nextMatches);
+          if (nextMatches >= 2) {
+            if (world === 'ocean') handleCompleteOceanLevel(3);
+            else if (world === 'space') handleCompleteSpaceLevel(3);
+            else handleCompleteDinoLevel(3);
+          }
+        }, 500);
+      } else {
+        setTimeout(() => {
+          setMemoryCards(prev => prev.map(c => c.id === c1.id || c.id === c2.id ? { ...c, isFlipped: false } : c));
+          setFlippedIds([]);
+        }, 800);
+      }
+    }
+  };
+
+  // Render Dino Level Sandbox
+  const renderDinoLevelContent = (lvl: DinoLevelDef) => {
+    // Level 1: Dino Colors
+    if (lvl.type === 'dino-colors') {
+      const q = DINO_COLOR_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
+              Question {genericQuestionIndex + 1} of {DINO_COLOR_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">🦕 Dino Colors</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    sound.speak(`Awesome! ${opt.name}!`);
+                    if (genericQuestionIndex < DINO_COLOR_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`That is ${opt.name}. Find ${q.targetColorName}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl border-4 border-white flex flex-col items-center justify-center p-2 cursor-pointer shadow-lg text-white font-black text-xs font-['Fredoka']"
+                style={{ backgroundColor: opt.hex }}
+              >
+                <span className="text-3xl drop-shadow">{opt.emoji}</span>
+                <span className="mt-1 text-[11px] leading-tight text-center drop-shadow">{opt.name}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the dinosaur with the target color!</span>
+        </div>
+      );
+    }
+
+    // Level 2: Dino Counting
+    if (lvl.type === 'dino-count') {
+      const q = DINO_COUNT_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
+              Question {genericQuestionIndex + 1} of {DINO_COUNT_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">🥚 Dino Counting</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2.5 my-2 flex-wrap justify-center max-w-sm">
+            {Array.from({ length: q.count }).map((_, i) => (
+              <span key={i} className="text-4xl drop-shadow-md animate-bounce-gentle">
+                {q.emoji}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            {q.options.map(num => (
+              <motion.button
+                key={num}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (num === q.count) {
+                    sound.playCorrect();
+                    sound.speak(`${num}! That is correct!`);
+                    if (genericQuestionIndex < DINO_COUNT_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Not ${num}. Count again!`);
+                  }
+                }}
+                className="w-20 h-14 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-2xl shadow-md border-2 border-white flex items-center justify-center cursor-pointer"
+              >
+                {num}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the matching number button!</span>
+        </div>
+      );
+    }
+
+    // Level 3: Dino Match
+    if (lvl.type === 'dino-match') {
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-amber-50 border border-amber-200 px-5 py-1.5 rounded-2xl text-center">
+            <span className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "Match the Prehistoric Pairs!" 🦖 🦕
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 my-2">
+            {memoryCards.map(card => (
+              <motion.button
+                key={card.id}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => handleMemoryTap(card.id, 'dino')}
+                className={`w-20 h-22 sm:w-24 sm:h-26 rounded-3xl border-3 flex flex-col items-center justify-center cursor-pointer shadow-md transition-all ${
+                  card.isMatched
+                    ? 'bg-emerald-100 border-emerald-400 text-emerald-800'
+                    : card.isFlipped
+                    ? 'bg-amber-100 border-amber-400'
+                    : 'bg-gradient-to-br from-amber-500 to-orange-600 border-white text-white'
+                }`}
+              >
+                {card.isFlipped || card.isMatched ? (
+                  <>
+                    <span className="text-4xl drop-shadow">{card.emoji}</span>
+                    <span className="text-[10px] font-black text-amber-950 font-['Fredoka'] mt-1">{card.name}</span>
+                  </>
+                ) : (
+                  <span className="text-3xl text-amber-200">🦖</span>
+                )}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Find matching dinosaur friends to complete the quest!</span>
+        </div>
+      );
+    }
+
+    // Level 4: Dino Words
+    if (lvl.type === 'dino-words') {
+      const q = DINO_WORD_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
+              Word {genericQuestionIndex + 1} of {DINO_WORD_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">📖 Dino Words</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    sound.speak(`${q.letter}... ${opt.word}!`);
+                    if (genericQuestionIndex < DINO_WORD_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Try again! Find the word starting with ${q.letter}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white hover:bg-amber-50 border-3 border-amber-200 flex flex-col items-center justify-center p-2 cursor-pointer shadow-md"
+              >
+                <span className="text-4xl drop-shadow">{opt.emoji}</span>
+                <span className="text-xs sm:text-sm font-black text-amber-950 font-['Fredoka'] mt-1">{opt.word}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the prehistoric friend starting with {q.letter}!</span>
+        </div>
+      );
+    }
+
+    // Level 5: Jurassic Quest
+    if (lvl.type === 'jurassic-quest') {
+      const step = JURASSIC_QUEST_STEPS[questStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-orange-700 bg-orange-50 px-3 py-0.5 rounded-full border border-orange-200">
+              Jurassic Task {questStep + 1} of 5
+            </span>
+            <span className="text-xs font-black text-purple-950">🌋 Jurassic Quest</span>
+          </div>
+
+          <div className="bg-orange-50 border-2 border-orange-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-orange-950 font-['Fredoka']">
+              "{step.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {step.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    if (questStep < JURASSIC_QUEST_STEPS.length - 1) {
+                      setQuestStep(s => s + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak("Try again!");
+                  }
+                }}
+                className="w-28 sm:w-32 py-3.5 rounded-2xl bg-white hover:bg-orange-50 text-orange-950 font-black text-xs sm:text-sm border-3 border-orange-200 shadow-md cursor-pointer flex items-center justify-center text-center"
+              >
+                {opt.label}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Complete all 5 tasks to reach the Final Dino Challenge!</span>
+        </div>
+      );
+    }
+
+    // Level 6: Dino Boss Challenge
+    if (lvl.type === 'dino-boss') {
+      const q = DINO_BOSS_QUESTIONS[bossStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
+              Final Trial {bossStep + 1} of 6
+            </span>
+            <span className="text-xs font-black text-purple-950">🏆 Final Dino Challenge</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
+              "{q.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt === q.correct) {
+                    sound.playCorrect();
+                    if (bossStep < DINO_BOSS_QUESTIONS.length - 1) {
+                      sound.speak("Awesome! Next trial!");
+                      setBossStep(s => s + 1);
+                    } else {
+                      handleCompleteDinoLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak("Try again!");
+                  }
+                }}
+                className="w-24 sm:w-28 py-3.5 rounded-2xl bg-white hover:bg-amber-50 text-purple-950 font-black text-base sm:text-lg border-3 border-amber-200 shadow-md cursor-pointer flex items-center justify-center text-center"
+              >
+                {opt}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Solve all 6 trials to complete Dino World! 🦖</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // Render Forest Game Sandbox
+  const renderForestLevelContent = (lvl: AdventureLevelDef) => {
     if (lvl.type === 'abc') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -136,7 +721,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                 onClick={() => {
                   if (item.isCorrect) {
                     sound.playCorrect();
-                    handleCompleteLevel(lvl.id);
+                    handleCompleteForestLevel(lvl.id);
                   } else {
                     sound.playPop();
                     sound.speak(`That is ${item.char}. Find B!`);
@@ -149,13 +734,11 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </motion.button>
             ))}
           </div>
-
           <span className="text-[10px] font-bold text-slate-400">Tap the correct letter card!</span>
         </div>
       );
     }
 
-    // Level 2: Color
     if (lvl.type === 'color') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -178,7 +761,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                 onClick={() => {
                   if (item.isCorrect) {
                     sound.playCorrect();
-                    handleCompleteLevel(lvl.id);
+                    handleCompleteForestLevel(lvl.id);
                   } else {
                     sound.playPop();
                     sound.speak(`That is ${item.color}. Find Green!`);
@@ -192,13 +775,11 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </motion.button>
             ))}
           </div>
-
           <span className="text-[10px] font-bold text-slate-400">Tap the green swatch!</span>
         </div>
       );
     }
 
-    // Level 3: Math
     if (lvl.type === 'math') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -210,9 +791,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
 
           <div className="flex items-center gap-3 my-2">
             {['🍎', '🍎', '🍎'].map((a, i) => (
-              <span key={i} className="text-5xl drop-shadow-md animate-bounce-gentle">
-                {a}
-              </span>
+              <span key={i} className="text-5xl drop-shadow-md animate-bounce-gentle">{a}</span>
             ))}
           </div>
 
@@ -225,7 +804,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                 onClick={() => {
                   if (num === 3) {
                     sound.playCorrect();
-                    handleCompleteLevel(lvl.id);
+                    handleCompleteForestLevel(lvl.id);
                   } else {
                     sound.playPop();
                     sound.speak(`Not ${num}. Count the apples!`);
@@ -237,13 +816,11 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </motion.button>
             ))}
           </div>
-
           <span className="text-[10px] font-bold text-slate-400">Tap the right number button!</span>
         </div>
       );
     }
 
-    // Level 4: Memory
     if (lvl.type === 'memory') {
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
@@ -267,7 +844,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                 onClick={() => {
                   if (card.isMatch) {
                     sound.playCorrect();
-                    handleCompleteLevel(lvl.id);
+                    handleCompleteForestLevel(lvl.id);
                   } else {
                     sound.playPop();
                     sound.speak("Find the bunny!");
@@ -279,92 +856,648 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </motion.button>
             ))}
           </div>
-
           <span className="text-[10px] font-bold text-slate-400">Tap a cute Bunny to complete the match!</span>
         </div>
       );
     }
 
-    // Level 5: Boss Forest Challenge
     if (lvl.type === 'boss') {
       const bossQuestions = [
-        {
-          q: 'Find the letter D for Dino!',
-          options: ['B', 'D', 'E'],
-          correct: 'D',
-          voice: 'Find letter D!'
-        },
-        {
-          q: 'Find the YELLOW Sun color!',
-          options: ['🔵', '🟡', '🔴'],
-          correct: '🟡',
-          voice: 'Find Yellow!'
-        },
-        {
-          q: 'Count 4 little Stars! ⭐⭐⭐⭐',
-          options: ['3', '4', '5'],
-          correct: '4',
-          voice: 'How many stars?'
-        },
-        {
-          q: 'Match the friendly Lion! 🦁',
-          options: ['🐱', '🦁', '🐼'],
-          correct: '🦁',
-          voice: 'Find the Lion!'
-        },
-        {
-          q: 'Grand Final: Which color is the Forest Tree? 🌳',
-          options: ['GREEN', 'RED', 'BLUE'],
-          correct: 'GREEN',
-          voice: 'Which color is the green tree?'
-        }
+        { q: 'Find the letter D for Dino!', options: ['B', 'D', 'E'], correct: 'D' },
+        { q: 'Find the YELLOW Sun color!', options: ['🔵', '🟡', '🔴'], correct: '🟡' },
+        { q: 'Count 4 little Stars! ⭐⭐⭐⭐', options: ['3', '4', '5'], correct: '4' },
+        { q: 'Match the friendly Lion! 🦁', options: ['🐱', '🦁', '🐼'], correct: '🦁' },
+        { q: 'Grand Final: Which color is the Forest Tree? 🌳', options: ['GREEN', 'RED', 'BLUE'], correct: 'GREEN' }
       ];
-
-      const currentQ = bossQuestions[bossStep];
 
       return (
         <div className="flex flex-col items-center justify-between h-full py-1">
-          <div className="flex items-center justify-between w-full px-2">
-            <span className="text-xs font-black text-amber-700 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
-              Quest {bossStep + 1} of 5
-            </span>
-            <span className="text-xs font-black text-purple-900">🏆 Forest Boss Trial</span>
-          </div>
-
           <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
             <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
-              "{currentQ.q}"
+              "{bossQuestions[0].q}"
+            </h3>
+          </div>
+          <div className="flex gap-3 my-2">
+            {bossQuestions[0].options.map((opt, i) => (
+              <button
+                key={i}
+                onClick={() => {
+                  if (opt === bossQuestions[0].correct) {
+                    sound.playCorrect();
+                    handleCompleteForestLevel(lvl.id);
+                  } else {
+                    sound.playPop();
+                  }
+                }}
+                className="w-24 py-3 rounded-2xl bg-white text-purple-950 font-black text-lg border-2 border-purple-200 shadow"
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+          <span className="text-[10px] font-bold text-slate-400">Tap the correct option!</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // Render Ocean Level Sandbox
+  const renderOceanLevelContent = (lvl: OceanLevelDef) => {
+    if (lvl.type === 'ocean-colors') {
+      const q = OCEAN_COLOR_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-cyan-700 bg-cyan-50 px-3 py-0.5 rounded-full border border-cyan-200">
+              Question {genericQuestionIndex + 1} of {OCEAN_COLOR_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">🐚 Ocean Colors</span>
+          </div>
+
+          <div className="bg-cyan-50 border-2 border-cyan-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-cyan-950 font-['Fredoka']">
+              "{q.prompt}"
             </h3>
           </div>
 
-          <div className="flex gap-3 my-2">
-            {currentQ.options.map((opt, i) => (
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
               <motion.button
                 key={i}
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.92 }}
                 onClick={() => {
-                  if (opt === currentQ.correct) {
+                  if (opt.isCorrect) {
                     sound.playCorrect();
-                    if (bossStep < 4) {
-                      sound.speak("Correct! Next question!");
-                      setBossStep(s => s + 1);
+                    sound.speak(`Awesome! ${opt.name}!`);
+                    if (genericQuestionIndex < OCEAN_COLOR_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
                     } else {
-                      handleCompleteLevel(lvl.id);
+                      handleCompleteOceanLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`That is ${opt.name}. Find ${q.targetColorName}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl border-4 border-white flex flex-col items-center justify-center p-2 cursor-pointer shadow-lg text-white font-black text-xs font-['Fredoka']"
+                style={{ backgroundColor: opt.hex }}
+              >
+                <span className="text-3xl drop-shadow">{opt.emoji}</span>
+                <span className="mt-1 text-[11px] leading-tight text-center drop-shadow">{opt.name}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the sea creature with the target color!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'ocean-count') {
+      const q = OCEAN_COUNT_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-cyan-700 bg-cyan-50 px-3 py-0.5 rounded-full border border-cyan-200">
+              Question {genericQuestionIndex + 1} of {OCEAN_COUNT_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">🐠 Sea Animal Count</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2.5 my-2 flex-wrap justify-center max-w-sm">
+            {Array.from({ length: q.count }).map((_, i) => (
+              <span key={i} className="text-4xl drop-shadow-md animate-bounce-gentle">
+                {q.emoji}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            {q.options.map(num => (
+              <motion.button
+                key={num}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (num === q.count) {
+                    sound.playCorrect();
+                    sound.speak(`${num}! That is correct!`);
+                    if (genericQuestionIndex < OCEAN_COUNT_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteOceanLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Not ${num}. Count again!`);
+                  }
+                }}
+                className="w-20 h-14 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-2xl shadow-md border-2 border-white flex items-center justify-center cursor-pointer"
+              >
+                {num}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the matching number button!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'ocean-match') {
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-cyan-50 border border-cyan-200 px-5 py-1.5 rounded-2xl text-center">
+            <span className="text-sm sm:text-base font-black text-cyan-950 font-['Fredoka']">
+              "Match the Ocean Animal Pairs!" 🐙 🐬
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 my-2">
+            {memoryCards.map(card => (
+              <motion.button
+                key={card.id}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => handleMemoryTap(card.id, 'ocean')}
+                className={`w-20 h-22 sm:w-24 sm:h-26 rounded-3xl border-3 flex flex-col items-center justify-center cursor-pointer shadow-md transition-all ${
+                  card.isMatched
+                    ? 'bg-emerald-100 border-emerald-400 text-emerald-800'
+                    : card.isFlipped
+                    ? 'bg-cyan-100 border-cyan-400'
+                    : 'bg-gradient-to-br from-cyan-500 to-blue-600 border-white text-white'
+                }`}
+              >
+                {card.isFlipped || card.isMatched ? (
+                  <>
+                    <span className="text-4xl drop-shadow">{card.emoji}</span>
+                    <span className="text-[10px] font-black text-cyan-950 font-['Fredoka'] mt-1">{card.name}</span>
+                  </>
+                ) : (
+                  <span className="text-3xl text-cyan-200">🌊</span>
+                )}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Find matching ocean friends to complete the quest!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'ocean-words') {
+      const q = OCEAN_WORD_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-cyan-700 bg-cyan-50 px-3 py-0.5 rounded-full border border-cyan-200">
+              Word {genericQuestionIndex + 1} of {OCEAN_WORD_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">🐳 Ocean Words</span>
+          </div>
+
+          <div className="bg-cyan-50 border-2 border-cyan-300 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-cyan-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    sound.speak(`${q.letter}... ${opt.word}!`);
+                    if (genericQuestionIndex < OCEAN_WORD_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteOceanLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Try again! Find the word starting with ${q.letter}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white hover:bg-cyan-50 border-3 border-cyan-200 flex flex-col items-center justify-center p-2 cursor-pointer shadow-md"
+              >
+                <span className="text-4xl drop-shadow">{opt.emoji}</span>
+                <span className="text-xs sm:text-sm font-black text-cyan-950 font-['Fredoka'] mt-1">{opt.word}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the sea creature starting with {q.letter}!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'coral-quest') {
+      const step = CORAL_QUEST_STEPS[questStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-rose-700 bg-rose-50 px-3 py-0.5 rounded-full border border-rose-200">
+              Reef Task {questStep + 1} of 5
+            </span>
+            <span className="text-xs font-black text-purple-950">🪸 Coral Reef Quest</span>
+          </div>
+
+          <div className="bg-rose-50 border-2 border-rose-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-rose-950 font-['Fredoka']">
+              "{step.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {step.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    if (questStep < CORAL_QUEST_STEPS.length - 1) {
+                      setQuestStep(s => s + 1);
+                    } else {
+                      handleCompleteOceanLevel(lvl.id);
                     }
                   } else {
                     sound.playPop();
                     sound.speak("Try again!");
                   }
                 }}
-                className="w-24 sm:w-28 py-3.5 rounded-2xl bg-white hover:bg-purple-50 text-purple-950 font-black text-lg sm:text-xl border-3 border-purple-200 shadow-md cursor-pointer flex items-center justify-center"
+                className="w-28 sm:w-32 py-3.5 rounded-2xl bg-white hover:bg-rose-50 text-rose-950 font-black text-xs sm:text-sm border-3 border-rose-200 shadow-md cursor-pointer flex items-center justify-center text-center"
+              >
+                {opt.label}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Complete all 5 coral tasks to reach the Ocean Boss!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'ocean-boss') {
+      const q = OCEAN_BOSS_QUESTIONS[bossStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
+              Trial {bossStep + 1} of 6
+            </span>
+            <span className="text-xs font-black text-purple-950">🏆 Ocean Boss Challenge</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
+              "{q.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt === q.correct) {
+                    sound.playCorrect();
+                    if (bossStep < OCEAN_BOSS_QUESTIONS.length - 1) {
+                      sound.speak("Awesome! Next trial!");
+                      setBossStep(s => s + 1);
+                    } else {
+                      handleCompleteOceanLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak("Try again!");
+                  }
+                }}
+                className="w-24 sm:w-28 py-3.5 rounded-2xl bg-white hover:bg-amber-50 text-purple-950 font-black text-base sm:text-lg border-3 border-amber-200 shadow-md cursor-pointer flex items-center justify-center text-center"
               >
                 {opt}
               </motion.button>
             ))}
           </div>
 
-          <span className="text-[10px] font-bold text-slate-400">Answer all 5 questions to unlock Ocean World!</span>
+          <span className="text-[10px] font-bold text-slate-400">Solve all 6 trials to unlock Space World! 🚀</span>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // Render Space Level Sandbox
+  const renderSpaceLevelContent = (lvl: SpaceLevelDef) => {
+    if (lvl.type === 'space-colors') {
+      const q = SPACE_COLOR_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-0.5 rounded-full border border-indigo-200">
+              Question {genericQuestionIndex + 1} of {SPACE_COLOR_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">🚀 Rocket Colors</span>
+          </div>
+
+          <div className="bg-indigo-50 border-2 border-indigo-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-indigo-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    sound.speak(`Awesome! ${opt.name}!`);
+                    if (genericQuestionIndex < SPACE_COLOR_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteSpaceLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`That is ${opt.name}. Find ${q.targetColorName}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl border-4 border-white flex flex-col items-center justify-center p-2 cursor-pointer shadow-lg text-white font-black text-xs font-['Fredoka']"
+                style={{ backgroundColor: opt.hex }}
+              >
+                <span className="text-3xl drop-shadow">{opt.emoji}</span>
+                <span className="mt-1 text-[11px] leading-tight text-center drop-shadow">{opt.name}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the space object with the target color!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'space-count') {
+      const q = SPACE_COUNT_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-0.5 rounded-full border border-indigo-200">
+              Question {genericQuestionIndex + 1} of {SPACE_COUNT_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">🪐 Planet Count</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-200 px-6 py-1.5 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-amber-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2.5 my-2 flex-wrap justify-center max-w-sm">
+            {Array.from({ length: q.count }).map((_, i) => (
+              <span key={i} className="text-4xl drop-shadow-md animate-bounce-gentle">
+                {q.emoji}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            {q.options.map(num => (
+              <motion.button
+                key={num}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (num === q.count) {
+                    sound.playCorrect();
+                    sound.speak(`${num}! That is correct!`);
+                    if (genericQuestionIndex < SPACE_COUNT_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteSpaceLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Not ${num}. Count again!`);
+                  }
+                }}
+                className="w-20 h-14 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-2xl shadow-md border-2 border-white flex items-center justify-center cursor-pointer"
+              >
+                {num}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the matching number button!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'space-match') {
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="bg-indigo-50 border border-indigo-200 px-5 py-1.5 rounded-2xl text-center">
+            <span className="text-sm sm:text-base font-black text-indigo-950 font-['Fredoka']">
+              "Match the Space Pairs!" 🌟 🌙
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-3 my-2">
+            {memoryCards.map(card => (
+              <motion.button
+                key={card.id}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
+                onClick={() => handleMemoryTap(card.id, 'space')}
+                className={`w-20 h-22 sm:w-24 sm:h-26 rounded-3xl border-3 flex flex-col items-center justify-center cursor-pointer shadow-md transition-all ${
+                  card.isMatched
+                    ? 'bg-emerald-100 border-emerald-400 text-emerald-800'
+                    : card.isFlipped
+                    ? 'bg-indigo-100 border-indigo-400'
+                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 border-white text-white'
+                }`}
+              >
+                {card.isFlipped || card.isMatched ? (
+                  <>
+                    <span className="text-4xl drop-shadow">{card.emoji}</span>
+                    <span className="text-[10px] font-black text-indigo-950 font-['Fredoka'] mt-1">{card.name}</span>
+                  </>
+                ) : (
+                  <span className="text-3xl text-indigo-200">🚀</span>
+                )}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Find matching celestial friends to complete the quest!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'space-words') {
+      const q = SPACE_WORD_QUESTIONS[genericQuestionIndex];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-indigo-700 bg-indigo-50 px-3 py-0.5 rounded-full border border-indigo-200">
+              Word {genericQuestionIndex + 1} of {SPACE_WORD_QUESTIONS.length}
+            </span>
+            <span className="text-xs font-black text-purple-950">👽 Space Words</span>
+          </div>
+
+          <div className="bg-indigo-50 border-2 border-indigo-300 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-indigo-950 font-['Fredoka']">
+              "{q.prompt}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3.5 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    sound.speak(`${q.letter}... ${opt.word}!`);
+                    if (genericQuestionIndex < SPACE_WORD_QUESTIONS.length - 1) {
+                      setGenericQuestionIndex(idx => idx + 1);
+                    } else {
+                      handleCompleteSpaceLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak(`Try again! Find the word starting with ${q.letter}!`);
+                  }
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white hover:bg-indigo-50 border-3 border-indigo-200 flex flex-col items-center justify-center p-2 cursor-pointer shadow-md"
+              >
+                <span className="text-4xl drop-shadow">{opt.emoji}</span>
+                <span className="text-xs sm:text-sm font-black text-indigo-950 font-['Fredoka'] mt-1">{opt.word}</span>
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Tap the cosmic friend starting with {q.letter}!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'galaxy-quest') {
+      const step = GALAXY_QUEST_STEPS[questStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-purple-700 bg-purple-50 px-3 py-0.5 rounded-full border border-purple-200">
+              Galaxy Task {questStep + 1} of 5
+            </span>
+            <span className="text-xs font-black text-purple-950">🌌 Galaxy Quest</span>
+          </div>
+
+          <div className="bg-purple-50 border-2 border-purple-200 px-6 py-2 rounded-2xl text-center my-1 max-w-md shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
+              "{step.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {step.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt.isCorrect) {
+                    sound.playCorrect();
+                    if (questStep < GALAXY_QUEST_STEPS.length - 1) {
+                      setQuestStep(s => s + 1);
+                    } else {
+                      handleCompleteSpaceLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak("Try again!");
+                  }
+                }}
+                className="w-28 sm:w-32 py-3.5 rounded-2xl bg-white hover:bg-purple-50 text-purple-950 font-black text-xs sm:text-sm border-3 border-purple-200 shadow-md cursor-pointer flex items-center justify-center text-center"
+              >
+                {opt.label}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Complete all 5 galaxy tasks to reach the Space Boss!</span>
+        </div>
+      );
+    }
+
+    if (lvl.type === 'space-boss') {
+      const q = SPACE_BOSS_QUESTIONS[bossStep];
+      return (
+        <div className="flex flex-col items-center justify-between h-full py-1">
+          <div className="flex justify-between w-full px-2">
+            <span className="text-xs font-black text-amber-800 bg-amber-100 px-3 py-0.5 rounded-full border border-amber-200">
+              Trial {bossStep + 1} of 6
+            </span>
+            <span className="text-xs font-black text-purple-950">🏆 Space Boss Challenge</span>
+          </div>
+
+          <div className="bg-amber-50 border-2 border-amber-300 px-6 py-2 rounded-2xl text-center my-1 max-w-lg shadow-sm">
+            <h3 className="text-sm sm:text-base font-black text-purple-950 font-['Fredoka']">
+              "{q.q}"
+            </h3>
+          </div>
+
+          <div className="flex gap-3 my-2">
+            {q.options.map((opt, i) => (
+              <motion.button
+                key={i}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  if (opt === q.correct) {
+                    sound.playCorrect();
+                    if (bossStep < SPACE_BOSS_QUESTIONS.length - 1) {
+                      sound.speak("Awesome! Next cosmic trial!");
+                      setBossStep(s => s + 1);
+                    } else {
+                      handleCompleteSpaceLevel(lvl.id);
+                    }
+                  } else {
+                    sound.playPop();
+                    sound.speak("Try again!");
+                  }
+                }}
+                className="w-24 sm:w-28 py-3.5 rounded-2xl bg-white hover:bg-amber-50 text-purple-950 font-black text-base sm:text-lg border-3 border-amber-200 shadow-md cursor-pointer flex items-center justify-center text-center"
+              >
+                {opt}
+              </motion.button>
+            ))}
+          </div>
+
+          <span className="text-[10px] font-bold text-slate-400">Solve all 6 trials to unlock Dino World! 🦖</span>
         </div>
       );
     }
@@ -410,7 +1543,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                 onClick={() => {
                   sound.playPop();
                   if (!isUnlocked) {
-                    sound.speak(`${w.name} is locked! Complete Forest Challenge first!`);
+                    sound.speak(`${w.name} is locked! Complete previous world challenges first!`);
                     return;
                   }
                   setSelectedWorld(w.id);
@@ -462,7 +1595,13 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
             </div>
 
             <div className="flex-1 min-h-0 py-2">
-              {renderLevelContent(activeLevel)}
+              {selectedWorld === 'forest'
+                ? renderForestLevelContent(activeLevel as AdventureLevelDef)
+                : selectedWorld === 'ocean'
+                ? renderOceanLevelContent(activeLevel as OceanLevelDef)
+                : selectedWorld === 'space'
+                ? renderSpaceLevelContent(activeLevel as SpaceLevelDef)
+                : renderDinoLevelContent(activeLevel as DinoLevelDef)}
             </div>
 
             {/* Level Complete Dialog */}
@@ -478,27 +1617,44 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                       🎉
                     </div>
                     <h2 className="text-xl font-black text-purple-950 font-['Fredoka']">
-                      {activeLevel.id === 5 ? 'WORLD COMPLETE!' : 'Level Complete!'}
+                      {(selectedWorld === 'space' && activeLevel.id === 6) || (selectedWorld === 'ocean' && activeLevel.id === 6) || (selectedWorld === 'forest' && activeLevel.id === 5)
+                        ? 'WORLD COMPLETE!'
+                        : 'Level Complete!'}
                     </h2>
                     <p className="text-xs font-bold text-slate-500 mt-1">
-                      {activeLevel.id === 5
+                      {selectedWorld === 'space' && activeLevel.id === 6
+                        ? 'You conquered Space World! Dino World is UNLOCKED!'
+                        : selectedWorld === 'ocean' && activeLevel.id === 6
+                        ? 'You conquered Ocean World! Space World is UNLOCKED!'
+                        : selectedWorld === 'forest' && activeLevel.id === 5
                         ? 'You conquered Coloroo Forest and unlocked Ocean World!'
-                        : 'Great job! Next forest level unlocked!'}
+                        : 'Great job! Next quest unlocked!'}
                     </p>
 
                     <div className="flex items-center gap-1.5 my-3 bg-amber-50 px-5 py-2 rounded-2xl border border-amber-200">
                       <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-                      <span className="text-base font-black text-amber-600">+10 Stars Earned!</span>
+                      <span className="text-base font-black text-amber-600">
+                        +{selectedWorld === 'dino' ? '25' : selectedWorld === 'space' ? '20' : selectedWorld === 'ocean' ? '15' : '10'} Stars Earned!
+                      </span>
                     </div>
 
                     <button
                       onClick={() => {
                         setLevelSuccess(false);
                         setActiveLevel(null);
+                        if (selectedWorld === 'space' && activeLevel.id === 6) {
+                          setSelectedWorld('dino');
+                        } else if (selectedWorld === 'ocean' && activeLevel.id === 6) {
+                          setSelectedWorld('space');
+                        }
                       }}
                       className="w-full py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs sm:text-sm shadow-md cursor-pointer active:scale-95 transition-all border-2 border-white"
                     >
-                      Continue Quest 🗺️
+                      {selectedWorld === 'space' && activeLevel.id === 6
+                        ? 'Explore Dino World 🦖'
+                        : selectedWorld === 'ocean' && activeLevel.id === 6
+                        ? 'Explore Space 🚀'
+                        : 'Continue Quest 🗺️'}
                     </button>
                   </motion.div>
                 </div>
@@ -506,7 +1662,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
             </AnimatePresence>
           </div>
         ) : selectedWorld === 'forest' ? (
-          /* VIEW 2: COLOROO FOREST HORIZONTAL PATH MAP */
+          /* VIEW 2: COLOROO FOREST TRAIL MAP */
           <div className="w-full h-full flex flex-col justify-between p-1">
             <div className="flex items-center justify-between px-2">
               <div>
@@ -524,7 +1680,6 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </span>
             </div>
 
-            {/* Connected Level Nodes Path */}
             <div className="flex-1 flex items-center justify-between px-3 sm:px-6 relative my-1">
               <div className="absolute left-10 right-10 h-3 bg-emerald-100 rounded-full -z-0" />
               <div
@@ -541,7 +1696,7 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
                     key={lvl.id}
                     whileHover={isAvailable ? { scale: 1.08 } : {}}
                     whileTap={isAvailable ? { scale: 0.94 } : {}}
-                    onClick={() => handleSelectLevel(lvl)}
+                    onClick={() => handleSelectForestLevel(lvl)}
                     className="flex flex-col items-center cursor-pointer z-10"
                   >
                     <div
@@ -581,91 +1736,301 @@ export const AdventureWorldScreen: React.FC<AdventureWorldScreenProps> = ({
               </span>
             </div>
           </div>
-        ) : isWorldUnlocked(selectedWorld) ? (
-          /* VIEW 3: UNLOCKED WORLD VIEWPORT (e.g. Ocean World) */
-          <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
-            {(() => {
-              const currentWorldInfo = WORLDS_INFO.find(w => w.id === selectedWorld)!;
-              return (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="max-w-md flex flex-col items-center"
-                >
-                  <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-cyan-400 to-blue-600 border-4 border-white shadow-xl flex items-center justify-center text-6xl mb-3 animate-bounce-gentle">
-                    {currentWorldInfo.themeEmoji}
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 text-xs font-black text-emerald-700 mb-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>WORLD UNLOCKED</span>
-                  </div>
-                  <h2 className="text-2xl font-black text-purple-950 font-['Fredoka']">
-                    {currentWorldInfo.name}
-                  </h2>
-                  <p className="text-xs font-bold text-slate-500 mt-1 max-w-xs">
-                    {currentWorldInfo.tagline}
-                  </p>
+        ) : selectedWorld === 'ocean' ? (
+          /* VIEW 3: OCEAN ADVENTURE MAP */
+          <div className="w-full h-full flex flex-col justify-between p-1">
+            <div className="flex items-center justify-between px-2">
+              <div>
+                <h2 className="text-base font-black text-cyan-950 font-['Fredoka'] flex items-center gap-1.5">
+                  <Waves className="w-5 h-5 text-cyan-600" />
+                  <span>🌊 Ocean Adventure Path</span>
+                </h2>
+                <p className="text-[10px] font-bold text-cyan-700">
+                  {isOceanComplete 
+                    ? '🎉 Ocean World Completed! Space World is UNLOCKED!' 
+                    : 'Explore the deep blue sea and complete all 6 quests!'}
+                </p>
+              </div>
+              <span className="text-xs font-black text-cyan-900 bg-cyan-50 px-3 py-1 rounded-xl border border-cyan-200">
+                Completed: {completedOcean.length} / 6
+              </span>
+            </div>
 
-                  <div className="bg-blue-50 border border-blue-200 px-5 py-2.5 rounded-2xl my-3 text-xs font-black text-blue-900 shadow-sm flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-blue-600" />
-                    <span>Ocean World quests are ready for exploration!</span>
-                  </div>
+            <div className="flex-1 flex items-center justify-between px-2 sm:px-4 relative my-1">
+              <div className="absolute left-8 right-8 h-3 bg-cyan-100 rounded-full -z-0" />
+              <div
+                className="absolute left-8 h-3 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full -z-0 transition-all duration-500"
+                style={{ width: `${(Math.max(0, completedOcean.length - 1) / 5) * 85}%` }}
+              />
 
-                  <button
-                    onClick={() => {
-                      sound.playPop();
-                      sound.speak("Ocean quests coming up in next adventure chapter!");
-                    }}
-                    className="px-8 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:brightness-105 text-white font-black text-xs sm:text-sm shadow-md cursor-pointer border-2 border-white active:scale-95 transition-all"
+              {OCEAN_LEVELS.map((lvl) => {
+                const isCompleted = completedOcean.includes(lvl.id);
+                const isAvailable = lvl.id === 1 || completedOcean.includes(lvl.id - 1) || isCompleted;
+
+                return (
+                  <motion.div
+                    key={lvl.id}
+                    whileHover={isAvailable ? { scale: 1.08 } : {}}
+                    whileTap={isAvailable ? { scale: 0.94 } : {}}
+                    onClick={() => handleSelectOceanLevel(lvl)}
+                    className="flex flex-col items-center cursor-pointer z-10"
                   >
-                    Start Ocean Adventure 🌊
-                  </button>
-                </motion.div>
-              );
-            })()}
+                    <div
+                      className={`w-13 h-13 sm:w-16 sm:h-16 rounded-3xl flex flex-col items-center justify-center shadow-lg border-4 transition-all ${
+                        isCompleted
+                          ? 'bg-gradient-to-br from-cyan-400 to-blue-600 border-white text-white shadow-cyan-200'
+                          : isAvailable
+                          ? 'bg-amber-400 border-white text-slate-900 animate-bounce-gentle shadow-amber-200 ring-4 ring-amber-300'
+                          : 'bg-slate-200 border-slate-300 text-slate-400'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                      ) : isAvailable ? (
+                        <span className="text-xl sm:text-2xl">{lvl.icon}</span>
+                      ) : (
+                        <Lock className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+
+                    <span className={`text-[9px] sm:text-[10px] font-black mt-1 font-['Fredoka'] ${isAvailable ? 'text-cyan-950' : 'text-slate-400'}`}>
+                      {lvl.id === 6 ? 'Final Trial' : `Quest ${lvl.id}`}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-500 max-w-[70px] text-center line-clamp-1 leading-tight">
+                      {lvl.title}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            <div className="text-center">
+              <span className="text-[10px] font-bold text-slate-400">
+                {isOceanComplete 
+                  ? '⭐ Space World is unlocked! Tap the Space tab above to explore!' 
+                  : 'Complete all 6 Ocean levels to unlock Space World! 🚀'}
+              </span>
+            </div>
+          </div>
+        ) : selectedWorld === 'space' ? (
+          /* VIEW 4: SPACE ADVENTURE MAP */
+          <div className="w-full h-full flex flex-col justify-between p-1">
+            <div className="flex items-center justify-between px-2">
+              <div>
+                <h2 className="text-base font-black text-indigo-950 font-['Fredoka'] flex items-center gap-1.5">
+                  <Rocket className="w-5 h-5 text-indigo-600" />
+                  <span>🚀 Space Adventure Path</span>
+                </h2>
+                <p className="text-[10px] font-bold text-indigo-700">
+                  {isSpaceComplete 
+                    ? '🎉 Space World Completed! Dino World is UNLOCKED!' 
+                    : 'Explore the stars and cosmic planets to conquer Space!'}
+                </p>
+              </div>
+              <span className="text-xs font-black text-indigo-900 bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-200">
+                Completed: {completedSpace.length} / 6
+              </span>
+            </div>
+
+            <div className="flex-1 flex items-center justify-between px-2 sm:px-4 relative my-1">
+              <div className="absolute left-8 right-8 h-3 bg-indigo-100 rounded-full -z-0" />
+              <div
+                className="absolute left-8 h-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full -z-0 transition-all duration-500"
+                style={{ width: `${(Math.max(0, completedSpace.length - 1) / 5) * 85}%` }}
+              />
+
+              {SPACE_LEVELS.map((lvl) => {
+                const isCompleted = completedSpace.includes(lvl.id);
+                const isAvailable = lvl.id === 1 || completedSpace.includes(lvl.id - 1) || isCompleted;
+
+                return (
+                  <motion.div
+                    key={lvl.id}
+                    whileHover={isAvailable ? { scale: 1.08 } : {}}
+                    whileTap={isAvailable ? { scale: 0.94 } : {}}
+                    onClick={() => handleSelectSpaceLevel(lvl)}
+                    className="flex flex-col items-center cursor-pointer z-10"
+                  >
+                    <div
+                      className={`w-13 h-13 sm:w-16 sm:h-16 rounded-3xl flex flex-col items-center justify-center shadow-lg border-4 transition-all ${
+                        isCompleted
+                          ? 'bg-gradient-to-br from-indigo-500 to-purple-700 border-white text-white shadow-indigo-200'
+                          : isAvailable
+                          ? 'bg-amber-400 border-white text-slate-900 animate-bounce-gentle shadow-amber-200 ring-4 ring-amber-300'
+                          : 'bg-slate-200 border-slate-300 text-slate-400'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                      ) : isAvailable ? (
+                        <span className="text-xl sm:text-2xl">{lvl.icon}</span>
+                      ) : (
+                        <Lock className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+
+                    <span className={`text-[9px] sm:text-[10px] font-black mt-1 font-['Fredoka'] ${isAvailable ? 'text-indigo-950' : 'text-slate-400'}`}>
+                      {lvl.id === 6 ? 'Final Trial' : `Quest ${lvl.id}`}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-500 max-w-[70px] text-center line-clamp-1 leading-tight">
+                      {lvl.title}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            <div className="text-center">
+              <span className="text-[10px] font-bold text-slate-400">
+                {isSpaceComplete 
+                  ? '⭐ Dino World is unlocked! Tap the Dino tab above to explore!' 
+                  : 'Complete all 6 Space levels to unlock Dino World! 🦖'}
+              </span>
+            </div>
           </div>
         ) : (
-          /* VIEW 4: LOCKED WORLD PREVIEWS (Space, Dino) */
-          <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
-            {(() => {
-              const currentWorldInfo = WORLDS_INFO.find(w => w.id === selectedWorld)!;
-              return (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="max-w-md flex flex-col items-center"
-                >
-                  <div className="w-20 h-20 rounded-3xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center text-5xl mb-2 relative">
-                    {currentWorldInfo.themeEmoji}
-                    <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center shadow">
-                      <Lock className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <h2 className="text-xl font-black text-purple-950 font-['Fredoka']">
-                    {currentWorldInfo.name}
-                  </h2>
-                  <p className="text-xs font-bold text-slate-500 mt-1 max-w-xs">
-                    {currentWorldInfo.tagline}
-                  </p>
+          /* VIEW 5: DINO ADVENTURE MAP */
+          <div className="w-full h-full flex flex-col justify-between p-1">
+            <div className="flex items-center justify-between px-2">
+              <div>
+                <h2 className="text-base font-black text-amber-950 font-['Fredoka'] flex items-center gap-1.5">
+                  <span className="text-lg">🦖</span>
+                  <span>🦖 Dino Adventure Path</span>
+                </h2>
+                <p className="text-[10px] font-bold text-amber-700">
+                  {isDinoComplete 
+                    ? '🎉 AMAZING! You are a Super Dino Explorer!' 
+                    : 'Travel back in time and learn with friendly dinosaurs!'}
+                </p>
+              </div>
+              <span className="text-xs font-black text-amber-900 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200">
+                Completed: {completedDino.length} / 6
+              </span>
+            </div>
 
-                  <div className="bg-purple-50 border border-purple-200 px-4 py-2 rounded-2xl my-3 text-xs font-bold text-purple-900">
-                    🔒 Complete <strong>Coloroo Forest (Level 5)</strong> to unlock this World!
-                  </div>
+            {/* Dino 6-Node Connected Path */}
+            <div className="flex-1 flex items-center justify-between px-2 sm:px-4 relative my-1">
+              <div className="absolute left-8 right-8 h-3 bg-amber-100 rounded-full -z-0" />
+              <div
+                className="absolute left-8 h-3 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full -z-0 transition-all duration-500"
+                style={{ width: `${(Math.max(0, completedDino.length - 1) / 5) * 85}%` }}
+              />
 
-                  <button
-                    onClick={() => {
-                      sound.playPop();
-                      setSelectedWorld('forest');
-                    }}
-                    className="px-6 py-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs shadow-md cursor-pointer border-2 border-white"
+              {DINO_LEVELS.map((lvl) => {
+                const isCompleted = completedDino.includes(lvl.id);
+                const isAvailable = lvl.id === 1 || completedDino.includes(lvl.id - 1) || isCompleted;
+
+                return (
+                  <motion.div
+                    key={lvl.id}
+                    whileHover={isAvailable ? { scale: 1.08 } : {}}
+                    whileTap={isAvailable ? { scale: 0.94 } : {}}
+                    onClick={() => handleSelectDinoLevel(lvl)}
+                    className="flex flex-col items-center cursor-pointer z-10"
                   >
-                    Go to Coloroo Forest 🌳
-                  </button>
-                </motion.div>
-              );
-            })()}
+                    <div
+                      className={`w-13 h-13 sm:w-16 sm:h-16 rounded-3xl flex flex-col items-center justify-center shadow-lg border-4 transition-all ${
+                        isCompleted
+                          ? 'bg-gradient-to-br from-amber-400 to-orange-600 border-white text-white shadow-amber-200'
+                          : isAvailable
+                          ? 'bg-amber-400 border-white text-slate-900 animate-bounce-gentle shadow-amber-200 ring-4 ring-amber-300'
+                          : 'bg-slate-200 border-slate-300 text-slate-400'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+                      ) : isAvailable ? (
+                        <span className="text-xl sm:text-2xl">{lvl.icon}</span>
+                      ) : (
+                        <Lock className="w-4 h-4 text-slate-400" />
+                      )}
+                    </div>
+
+                    <span className={`text-[9px] sm:text-[10px] font-black mt-1 font-['Fredoka'] ${isAvailable ? 'text-amber-950' : 'text-slate-400'}`}>
+                      {lvl.id === 6 ? 'Final Trial' : `Quest ${lvl.id}`}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-500 max-w-[70px] text-center line-clamp-1 leading-tight">
+                      {lvl.title}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            <div className="text-center">
+              <span className="text-[10px] font-bold text-slate-400">
+                {isDinoComplete 
+                  ? '🏆 Grand Adventure Complete! All 4 Worlds Conquered!' 
+                  : 'Complete all 6 Dino quests to earn the Super Dino Explorer Trophy! 🦖'}
+              </span>
+            </div>
           </div>
         )}
+
+        {/* GRAND FINALE COMPLETION MODAL */}
+        <AnimatePresence>
+          {isGrandFinaleModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-md p-3">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                className="bg-white rounded-[36px] p-6 max-w-md w-full text-center shadow-2xl border-4 border-amber-300 border-b-[8px] border-b-amber-500 flex flex-col items-center"
+              >
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-5xl mb-2 shadow-inner border-2 border-white animate-bounce-gentle">
+                  🏆
+                </div>
+                <h2 className="text-2xl font-black text-purple-950 font-['Fredoka']">
+                  🎉 AMAZING!
+                </h2>
+                <p className="text-sm font-black text-amber-600 mt-0.5">
+                  You completed all Dino World adventures!
+                </p>
+                <p className="text-xs font-bold text-slate-500 mt-1">
+                  🦖 You're a Super Dino Explorer & Master Learner!
+                </p>
+
+                <div className="flex items-center gap-2 my-3 bg-amber-50 px-6 py-2 rounded-2xl border border-amber-200">
+                  <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                  <span className="text-lg font-black text-amber-600">+25 Stars Earned!</span>
+                </div>
+
+                <div className="flex gap-2 w-full mt-2">
+                  <button
+                    onClick={() => {
+                      setIsGrandFinaleModal(false);
+                      setActiveLevel(DINO_LEVELS[5]);
+                      setBossStep(0);
+                    }}
+                    className="flex-1 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-500 text-slate-900 font-black text-xs shadow-md cursor-pointer active:scale-95 transition-all"
+                  >
+                    Play Again 🔄
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsGrandFinaleModal(false);
+                      setSelectedWorld('dino');
+                      setActiveLevel(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs shadow-md cursor-pointer active:scale-95 transition-all border-2 border-white"
+                  >
+                    Adventure Map 🗺️
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsGrandFinaleModal(false);
+                      onBack();
+                    }}
+                    className="flex-1 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs shadow-md cursor-pointer active:scale-95 transition-all border-2 border-white flex items-center justify-center gap-1"
+                  >
+                    <Home className="w-3.5 h-3.5" />
+                    <span>Home</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
       </div>
     </div>
