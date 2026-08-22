@@ -124,7 +124,6 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     };
     this.ws?.send(JSON.stringify(setupMsg));
     console.log('[AIBuddy] Gemini setup completed');
-    this.setState('ready', 'Tap to Talk with Buddy! 🎤');
   }
 
   public async startTalking(): Promise<void> {
@@ -182,12 +181,10 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           const audioChunk = {
             realtimeInput: {
-              mediaChunks: [
-                {
-                  mimeType: 'audio/pcm;rate=16000',
-                  data: base64Audio
-                }
-              ]
+              audio: {
+                data: base64Audio,
+                mimeType: 'audio/pcm;rate=16000'
+              }
             }
           };
           this.ws.send(JSON.stringify(audioChunk));
@@ -217,15 +214,16 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     this.stopAudioCapture();
     this.setState('thinking', 'Buddy is thinking... 🤖');
 
-    // Signal client turn completion over WebSocket
+    // Signal end of microphone audio stream.
+    // Gemini Live automatic activity detection handles the turn.
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const turnMsg = {
-        clientContent: {
-          turnComplete: true
+      const audioEndMsg = {
+        realtimeInput: {
+          audioStreamEnd: true
         }
       };
-      console.log('[AIBuddy] sending clientContent turnComplete: true');
-      this.ws.send(JSON.stringify(turnMsg));
+      console.log('[AIBuddy] sending realtimeInput audioStreamEnd: true');
+      this.ws.send(JSON.stringify(audioEndMsg));
     }
   }
 

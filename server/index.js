@@ -61,6 +61,13 @@ const server = http.createServer(async (req, res) => {
           uses: 1,
           expireTime: expireTime,
           newSessionExpireTime: newSessionExpireTime,
+          liveConnectConstraints: {
+            model: 'gemini-3.1-flash-live-preview',
+            config: {
+              responseModalities: ['AUDIO'],
+              sessionResumption: {}
+            }
+          },
           httpOptions: { apiVersion: 'v1alpha' }
         }
       });
