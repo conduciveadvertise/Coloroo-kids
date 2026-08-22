@@ -30,6 +30,9 @@ export class GeminiLiveSession {
   private nextPlayTime = 0;
   private frameCount = 0;
   private isConnected = false;
+  private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private intentionalDisconnect = false;
 
   public onStateChange: ((state: LiveConnectionState, statusMsg?: string) => void) | null = null;
   public onTranscript: ((msg: LiveMessageTranscript) => void) | null = null;
@@ -47,6 +50,12 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
 
   public async connect(): Promise<void> {
     console.log('[AIBuddy] TALK/CONNECT PRESSED');
+    this.intentionalDisconnect = false;
+    this.reconnectAttempts = 0;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.setState('connecting', 'Buddy is getting ready...');
 
     try {
@@ -92,13 +101,160 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       this.ws.onclose = (e) => {
         console.log(`[AIBuddy] Gemini session CLOSED code=${e.code}, reason=${e.reason}, wasClean=${e.wasClean}`);
         this.isConnected = false;
-        this.setState('disconnected', `Gemini disconnected (${e.code})`);
         this.stopAudioCapture();
+
+        // User intentionally closed the session — do not reconnect.
+        if (this.intentionalDisconnect) {
+          this.setState('disconnected', 'Disconnected');
+          return;
+        }
+
+        // 1011/1006/1012 can happen from a temporary Live session failure.
+        // Automatically create a fresh ephemeral session.
+        if ([1006, 1011, 1012].includes(e.code)) {
+          if (this.reconnectAttempts < 3) {
+            this.reconnectAttempts++;
+
+            const delay = Math.min(1000 * this.reconnectAttempts, 3000);
+
+            console.log(
+              `[AIBuddy] temporary disconnect ${e.code}; reconnect attempt ${this.reconnectAttempts}/3 in ${delay}ms`
+            );
+
+            this.setState(
+              'connecting',
+              `Reconnecting to Buddy... (${this.reconnectAttempts}/3)`
+            );
+
+            this.reconnectTimer = setTimeout(async () => {
+              this.reconnectTimer = null;
+
+              try {
+                await this.connectAfterDisconnect();
+              } catch (err) {
+                console.error('[AIBuddy] automatic reconnect failed:', err);
+              }
+            }, delay);
+
+            return;
+          }
+        }
+
+        this.setState('disconnected', `Gemini disconnected (${e.code})`);
       };
     } catch (err: any) {
       console.error('[AIBuddy ERROR] connect failed:', err);
       this.setState('error', 'Buddy needs internet to talk right now.');
       if (this.onError) this.onError(err.message || 'Connection failed');
+    }
+  }
+
+  private async connectAfterDisconnect(): Promise<void> {
+    console.log('[AIBuddy] reconnecting after temporary Gemini disconnect');
+
+    try {
+      // Clean up the old socket reference.
+      this.ws = null;
+
+      const backendUrl =
+        (import.meta as any).env?.VITE_BACKEND_URL ||
+        'https://coloroo-kids-production.up.railway.app';
+
+      console.log(`[AIBuddy] requesting fresh ephemeral token from: ${backendUrl}/api/ai-buddy/token`);
+
+      const res = await fetch(`${backendUrl}/api/ai-buddy/token`, {
+        method: 'POST'
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server returned ${res.status}`);
+      }
+
+      const data = await res.json();
+      const ephemeralToken = data.token;
+      const model = data.model || 'gemini-3.1-flash-live-preview';
+
+      if (!ephemeralToken) {
+        throw new Error('Ephemeral token missing from backend response');
+      }
+
+      const wsUrl =
+        `wss://generativelanguage.googleapis.com/ws/` +
+        `google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained` +
+        `?access_token=${encodeURIComponent(ephemeralToken)}`;
+
+      const ws = new WebSocket(wsUrl);
+      this.ws = ws;
+
+      ws.onopen = () => {
+        console.log('[AIBuddy] Gemini Live RECONNECTED');
+        this.isConnected = true;
+        this.sendInitialSetup(model);
+
+        // Try to unlock/resume output audio after reconnect.
+        this.initOutputAudioContext();
+        if (this.outputAudioContext?.state === 'suspended') {
+          this.outputAudioContext.resume().catch((err) => {
+            console.warn('[AIBuddy AUDIO] resume after reconnect failed:', err);
+          });
+        }
+      };
+
+      ws.onmessage = async (event) => {
+        console.log('[AIBuddy WS] MESSAGE RECEIVED after reconnect');
+        await this.handleServerMessage(event.data);
+      };
+
+      ws.onerror = (e) => {
+        console.error('[AIBuddy RECONNECT ERROR]', e);
+      };
+
+      ws.onclose = (e) => {
+        console.log(
+          `[AIBuddy] RECONNECTED session CLOSED code=${e.code}, reason=${e.reason}`
+        );
+
+        this.isConnected = false;
+        this.stopAudioCapture();
+
+        if (!this.intentionalDisconnect && [1006, 1011, 1012].includes(e.code)) {
+          // Re-enter normal reconnect flow.
+          this.reconnectAttempts = Math.min(this.reconnectAttempts, 2);
+          this.setState('disconnected', `Gemini disconnected (${e.code})`);
+
+          if (this.reconnectAttempts < 3) {
+            this.reconnectAttempts++;
+
+            const delay = Math.min(1000 * this.reconnectAttempts, 3000);
+
+            this.setState(
+              'connecting',
+              `Reconnecting to Buddy... (${this.reconnectAttempts}/3)`
+            );
+
+            this.reconnectTimer = setTimeout(() => {
+              this.reconnectTimer = null;
+              this.connectAfterDisconnect().catch((err) => {
+                console.error('[AIBuddy] retry failed:', err);
+              });
+            }, delay);
+          }
+        }
+      };
+    } catch (err) {
+      console.error('[AIBuddy] reconnect setup failed:', err);
+
+      if (this.reconnectAttempts < 3 && !this.intentionalDisconnect) {
+        const delay = Math.min(1000 * this.reconnectAttempts, 3000);
+
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.connectAfterDisconnect().catch(() => {});
+        }, delay);
+      } else {
+        this.setState('error', 'Gemini connection failed. Tap to retry!');
+      }
     }
   }
 
@@ -364,6 +520,14 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
 
   public disconnect(): void {
     console.log('[AIBuddy] session disconnecting');
+    this.intentionalDisconnect = true;
+    this.reconnectAttempts = 0;
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     this.stopAudioCapture();
     this.stopAllAudioPlayback();
     if (this.ws) {
