@@ -1,7 +1,7 @@
 /**
  * Gemini Live Bidi WebSocket Client for Coloroo AI Buddy
- * Connects directly to GenerativeService.BidiGenerateContent using ephemeral tokens.
- * Streams real-time 16kHz PCM audio input and plays back native 24kHz PCM audio output.
+ * Connects directly to Google GenerativeService.BidiGenerateContent.
+ * Handles setupComplete handshake, 16kHz PCM downsampling, and 24kHz direct PCM audio playback.
  */
 
 export interface LiveMessageTranscript {
@@ -28,49 +28,54 @@ export class GeminiLiveSession {
   private source: MediaStreamAudioSourceNode | null = null;
   private scheduledAudioSources: AudioBufferSourceNode[] = [];
   private nextPlayTime = 0;
-  private isConnected = false;
+  private isSetupComplete = false;
 
   public onStateChange: ((state: LiveConnectionState, statusMsg?: string) => void) | null = null;
   public onTranscript: ((msg: LiveMessageTranscript) => void) | null = null;
   public onError: ((err: string) => void) | null = null;
 
   private systemInstruction = `
-You are Coloroo Buddy, a friendly, warm, and cheerful educational AI companion for young children.
-Speak in simple Hinglish (a natural, friendly mix of Hindi and English).
-Keep answers short, joyful, and easy to understand (1 to 3 sentences maximum).
-Explain concepts like colors, animals, numbers, space, drawing, and good habits.
+You are Coloroo Buddy, a friendly, cheerful AI companion for children.
+Speak in simple Hinglish (a fun mix of Hindi and English).
+Keep answers short and lively (1 to 2 sentences).
+Explain colors, animals, numbers, and fun facts.
 Never ask for personal information.
-Always respond using real-time audio voice.
+Always respond with real-time audio voice.
 `;
 
   public async connect(): Promise<void> {
-    console.log('[GeminiLive] Connecting to Gemini Live...');
-    this.setState('connecting', 'Buddy is waking up... ✨');
+    console.log('[GeminiLive] Initiating connection...');
+    this.setState('connecting', 'Buddy is connecting to Gemini... ✨');
+    this.isSetupComplete = false;
 
     try {
       const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids-production.up.railway.app';
-      console.log(`[GeminiLive] Requesting token from: ${backendUrl}/api/ai-buddy/token`);
+      console.log(`[GeminiLive] Fetching token from: ${backendUrl}/api/ai-buddy/token`);
 
       const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
       if (!res.ok) {
-        throw new Error(`Token endpoint returned HTTP ${res.status}`);
+        throw new Error(`Token endpoint HTTP ${res.status}`);
       }
 
       const data = await res.json();
       const ephemeralToken = data.token;
-      const model = data.model || 'gemini-2.0-flash-exp';
+      let model = data.model || 'gemini-2.0-flash-exp';
 
-      if (!ephemeralToken) {
-        throw new Error('No ephemeral token received from server.');
+      // Clean model name formatting
+      if (model.startsWith('models/')) {
+        model = model.replace('models/', '');
       }
 
-      console.log('[GeminiLive] Ephemeral token received. Opening WebSocket...');
+      if (!ephemeralToken) {
+        throw new Error('No ephemeral token received from Railway backend.');
+      }
+
+      console.log(`[GeminiLive] Ephemeral token received for model: ${model}`);
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${ephemeralToken}`;
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('[GeminiLive] WebSocket connected. Sending initial setup...');
-        this.isConnected = true;
+        console.log('[GeminiLive] WebSocket opened. Sending setup payload...');
         this.sendSetupMessage(model);
       };
 
@@ -79,13 +84,13 @@ Always respond using real-time audio voice.
       };
 
       this.ws.onerror = (err) => {
-        console.error('[GeminiLive ERROR] WebSocket error:', err);
-        this.setState('error', 'Gemini connection error. Tap to retry! ⚠️');
+        console.error('[GeminiLive ERROR] WebSocket encountered an error:', err);
+        this.setState('error', 'Gemini connection issue. Tap to retry! ⚠️');
       };
 
       this.ws.onclose = (event) => {
-        console.log(`[GeminiLive] WebSocket closed: Code ${event.code}, Reason: ${event.reason}`);
-        this.isConnected = false;
+        console.warn(`[GeminiLive] WebSocket closed: Code ${event.code}, Reason: ${event.reason}`);
+        this.isSetupComplete = false;
         this.stopAudioCapture();
         if (event.code !== 1000) {
           this.setState('error', 'Connection lost. Tap reconnect 🔄');
@@ -94,17 +99,16 @@ Always respond using real-time audio voice.
         }
       };
     } catch (err: any) {
-      console.error('[GeminiLive ERROR] Failed to connect:', err);
-      this.setState('error', 'Cannot reach Gemini Live. Check internet & retry.');
+      console.error('[GeminiLive ERROR] Connection failure:', err);
+      this.setState('error', 'Cannot connect to Gemini Live. Check internet.');
       if (this.onError) this.onError(err.message || 'Connection failed');
     }
   }
 
   private sendSetupMessage(model: string) {
-    const formattedModel = model.startsWith('models/') ? model : `models/${model}`;
     const setupMessage = {
       setup: {
-        model: formattedModel,
+        model: `models/${model}`,
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {
@@ -121,13 +125,25 @@ Always respond using real-time audio voice.
       }
     };
 
-    console.log('[GeminiLive] Sending setup config:', JSON.stringify(setupMessage));
+    console.log('[GeminiLive] Dispatching setup:', JSON.stringify(setupMessage));
     this.ws?.send(JSON.stringify(setupMessage));
-    this.setState('ready', 'Tap to Talk with Buddy! 🎤');
   }
 
   public async startTalking(): Promise<void> {
-    console.log('[GeminiLive] Starting microphone capture for Gemini...');
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn('[GeminiLive] Cannot talk: WebSocket is not open.');
+      this.setState('error', 'Reconnecting to Gemini... Tap again! 🔄');
+      this.connect();
+      return;
+    }
+
+    if (!this.isSetupComplete) {
+      console.warn('[GeminiLive] Waiting for setupComplete handshake before audio stream.');
+      this.setState('connecting', 'Buddy is getting ready...');
+      return;
+    }
+
+    console.log('[GeminiLive] Starting microphone audio stream...');
     try {
       this.stopAllAudioPlayback();
 
@@ -151,6 +167,8 @@ Always respond using real-time audio voice.
       this.processor = this.inputAudioContext.createScriptProcessor(4096, 1, 1);
 
       this.processor.onaudioprocess = (e) => {
+        if (!this.isSetupComplete) return;
+
         const inputData = e.inputBuffer.getChannelData(0);
         const pcm16 = this.downsampleTo16kPCM(inputData, this.inputAudioContext!.sampleRate);
         const base64Audio = this.arrayBufferToBase64(pcm16);
@@ -175,24 +193,24 @@ Always respond using real-time audio voice.
 
       this.setState('listening', 'Listening to you... 👂');
     } catch (err: any) {
-      console.error('[GeminiLive ERROR] getUserMedia error:', err);
+      console.error('[GeminiLive ERROR] Microphone access error:', err);
       this.setState('error', 'Microphone permission needed so Buddy can hear you 🎤');
-      if (this.onError) this.onError('Microphone access denied');
+      if (this.onError) this.onError('Microphone permission error');
     }
   }
 
   public stopTalking(): void {
-    console.log('[GeminiLive] User stopped talking. Sending turn complete signal...');
+    console.log('[GeminiLive] stopTalking() invoked. Sending client turn complete...');
     this.stopAudioCapture();
     this.setState('thinking', 'Buddy is thinking... 🤖');
 
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const clientTurnComplete = {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.isSetupComplete) {
+      const turnSignal = {
         clientContent: {
           turnComplete: true
         }
       };
-      this.ws.send(JSON.stringify(clientTurnComplete));
+      this.ws.send(JSON.stringify(turnSignal));
     }
   }
 
@@ -224,18 +242,27 @@ Always respond using real-time audio voice.
 
     if (!msg) return;
 
-    // Handle Interruption
+    // 1. Handshake setupComplete confirmation
+    if (msg.setupComplete) {
+      console.log('[GeminiLive] Handshake verified: setupComplete received.');
+      this.isSetupComplete = true;
+      this.setState('ready', 'Tap to Talk with Buddy! 🎤');
+      return;
+    }
+
+    // 2. Interruption handling
     if (msg.serverContent?.interrupted) {
-      console.log('[GeminiLive] Interruption received.');
+      console.log('[GeminiLive] Server turn interrupted.');
       this.stopAllAudioPlayback();
       this.setState('ready', 'Listening...');
       return;
     }
 
-    // Handle Model Content (Native Text + Audio)
+    // 3. Audio & Text stream from Gemini
     const parts = msg.serverContent?.modelTurn?.parts || [];
     for (const part of parts) {
       if (part.text && this.onTranscript) {
+        console.log('[GeminiLive] Transcript:', part.text);
         this.onTranscript({ sender: 'buddy', text: part.text });
       }
       if (part.inlineData && part.inlineData.data) {
@@ -246,11 +273,12 @@ Always respond using real-time audio voice.
     }
 
     if (msg.serverContent?.turnComplete) {
+      console.log('[GeminiLive] Model turn completed.');
       setTimeout(() => {
         if (this.scheduledAudioSources.length === 0) {
           this.setState('ready', 'Tap to Talk with Buddy! 🎤');
         }
-      }, 400);
+      }, 300);
     }
   }
 
@@ -306,7 +334,7 @@ Always respond using real-time audio voice.
   }
 
   public disconnect(): void {
-    console.log('[GeminiLive] Disconnecting session...');
+    console.log('[GeminiLive] Disconnecting session.');
     this.stopAudioCapture();
     this.stopAllAudioPlayback();
     if (this.ws) {
