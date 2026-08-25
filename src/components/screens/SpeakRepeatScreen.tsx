@@ -33,7 +33,8 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
   onBack,
   onAddStars
 }) => {
-  const [currentLesson] = useState<SpeakLesson>(SPEAK_REPEAT_LESSONS[0]);
+  const [lessonIndex, setLessonIndex] = useState<number>(0);
+  const currentLesson = SPEAK_REPEAT_LESSONS[lessonIndex] || SPEAK_REPEAT_LESSONS[0];
   const [activePhraseIndex, setActivePhraseIndex] = useState<number>(0);
   const [mode, setMode] = useState<'idle' | 'listening_ai' | 'waiting_user' | 'recording_user' | 'evaluating' | 'retry'>('idle');
   const [userSpokenText, setUserSpokenText] = useState<string>('');
@@ -280,6 +281,9 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
       if (onAddStars) {
         onAddStars(5);
       }
+      if (lessonIndex < SPEAK_REPEAT_LESSONS.length - 1) {
+        setStatusMessage('Lesson complete! Tap Next Lesson! 🎉');
+      }
     }
   };
 
@@ -317,9 +321,24 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
           <h1 className="text-xs sm:text-sm font-black text-orange-950 font-sans">
             Speak & Repeat 🗣️
           </h1>
-          <span className="text-[9px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300 ml-1">
-            Phrase {activePhraseIndex + 1}/{segments.length}
-          </span>
+          <button
+            onClick={() => {
+              sound.playPop();
+              try { TextToSpeech.stop(); } catch {}
+              const nextL = (lessonIndex + 1) % SPEAK_REPEAT_LESSONS.length;
+              setLessonIndex(nextL);
+              setActivePhraseIndex(0);
+              setMode('idle');
+              setStatusMessage('Tap "Start Lesson" to begin! 🌟');
+              setUserSpokenText('');
+              setEvaluationFeedback(null);
+            }}
+            className="text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-950 font-extrabold px-2.5 py-0.5 rounded-full border border-amber-300 ml-1 cursor-pointer flex items-center gap-1 shadow-xs"
+            title="Switch Lesson"
+          >
+            <span>{currentLesson.badge}: {currentLesson.title}</span>
+            <span className="text-[8px] bg-amber-300 text-amber-950 px-1 rounded-sm">({activePhraseIndex + 1}/{segments.length})</span>
+          </button>
         </div>
 
         <button

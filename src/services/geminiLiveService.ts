@@ -1,7 +1,7 @@
 /**
- * Gemini Live API WebSocket Client for Coloroo AI Buddy
- * Fully instrumented with 16kHz PCM downsampler, turn-completion handling,
- * and comprehensive diagnostic logging for Android WebView.
+ * Gemini Live Bidi WebSocket Client for Coloroo AI Buddy
+ * Connects directly to GenerativeService.BidiGenerateContent using ephemeral tokens.
+ * Streams real-time 16kHz PCM audio input and plays back native 24kHz PCM audio output.
  */
 
 export interface LiveMessageTranscript {
@@ -28,241 +28,83 @@ export class GeminiLiveSession {
   private source: MediaStreamAudioSourceNode | null = null;
   private scheduledAudioSources: AudioBufferSourceNode[] = [];
   private nextPlayTime = 0;
-  private frameCount = 0;
   private isConnected = false;
-  private reconnectAttempts = 0;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private intentionalDisconnect = false;
 
   public onStateChange: ((state: LiveConnectionState, statusMsg?: string) => void) | null = null;
   public onTranscript: ((msg: LiveMessageTranscript) => void) | null = null;
   public onError: ((err: string) => void) | null = null;
 
   private systemInstruction = `
-You are Coloroo Buddy, a friendly educational AI companion for young children.
+You are Coloroo Buddy, a friendly, warm, and cheerful educational AI companion for young children.
 Speak in simple Hinglish (a natural, friendly mix of Hindi and English).
-Use short sentences (1 to 3 sentences maximum).
-Be encouraging, cheerful, and patient.
-Explain concepts like colors, animals, numbers, space, and dinosaurs in an easy way.
-Never ask for private or personal info.
-If an inappropriate question is asked, respond safely and redirect to a fun learning topic.
+Keep answers short, joyful, and easy to understand (1 to 3 sentences maximum).
+Explain concepts like colors, animals, numbers, space, drawing, and good habits.
+Never ask for personal information.
+Always respond using real-time audio voice.
 `;
 
   public async connect(): Promise<void> {
-    console.log('[AIBuddy] TALK/CONNECT PRESSED');
-    this.intentionalDisconnect = false;
-    this.reconnectAttempts = 0;
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    this.setState('connecting', 'Buddy is getting ready...');
+    console.log('[GeminiLive] Connecting to Gemini Live...');
+    this.setState('connecting', 'Buddy is waking up... ✨');
 
     try {
       const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids-production.up.railway.app';
-      console.log(`[AIBuddy] requesting ephemeral token from: ${backendUrl}/api/ai-buddy/token`);
-      
+      console.log(`[GeminiLive] Requesting token from: ${backendUrl}/api/ai-buddy/token`);
+
       const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
       if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || `Server returned ${res.status}`);
+        throw new Error(`Token endpoint returned HTTP ${res.status}`);
       }
 
       const data = await res.json();
       const ephemeralToken = data.token;
-      const model = data.model || 'gemini-3.1-flash-live-preview';
-      console.log('[AIBuddy] token received');
+      const model = data.model || 'gemini-2.0-flash-exp';
 
       if (!ephemeralToken) {
-        throw new Error('Ephemeral token missing from backend response');
+        throw new Error('No ephemeral token received from server.');
       }
 
-      console.log('[AIBuddy] creating Gemini Live session');
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(ephemeralToken)}`;
+      console.log('[GeminiLive] Ephemeral token received. Opening WebSocket...');
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${ephemeralToken}`;
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('[AIBuddy] Gemini Live connection opened');
+        console.log('[GeminiLive] WebSocket connected. Sending initial setup...');
         this.isConnected = true;
-        this.sendInitialSetup(model);
+        this.sendSetupMessage(model);
       };
 
       this.ws.onmessage = async (event) => {
-        console.log('[AIBuddy WS] MESSAGE RECEIVED');
         await this.handleServerMessage(event.data);
       };
 
-      this.ws.onerror = (e) => {
-        console.error('[AIBuddy ERROR] WebSocket error:', e);
-        console.error('[AIBuddy ERROR] WebSocket readyState:', this.ws?.readyState);
-        this.setState('error', 'Gemini connection error. Tap to retry!');
+      this.ws.onerror = (err) => {
+        console.error('[GeminiLive ERROR] WebSocket error:', err);
+        this.setState('error', 'Gemini connection error. Tap to retry! ⚠️');
       };
 
-      this.ws.onclose = (e) => {
-        console.log(`[AIBuddy] Gemini session CLOSED code=${e.code}, reason=${e.reason}, wasClean=${e.wasClean}`);
+      this.ws.onclose = (event) => {
+        console.log(`[GeminiLive] WebSocket closed: Code ${event.code}, Reason: ${event.reason}`);
         this.isConnected = false;
         this.stopAudioCapture();
-
-        // User intentionally closed the session — do not reconnect.
-        if (this.intentionalDisconnect) {
-          this.setState('disconnected', 'Disconnected');
-          return;
+        if (event.code !== 1000) {
+          this.setState('error', 'Connection lost. Tap reconnect 🔄');
+        } else {
+          this.setState('disconnected', 'Buddy is resting.');
         }
-
-        // 1011/1006/1012 can happen from a temporary Live session failure.
-        // Automatically create a fresh ephemeral session.
-        if ([1006, 1011, 1012].includes(e.code)) {
-          if (this.reconnectAttempts < 3) {
-            this.reconnectAttempts++;
-
-            const delay = Math.min(1000 * this.reconnectAttempts, 3000);
-
-            console.log(
-              `[AIBuddy] temporary disconnect ${e.code}; reconnect attempt ${this.reconnectAttempts}/3 in ${delay}ms`
-            );
-
-            this.setState(
-              'connecting',
-              `Reconnecting to Buddy... (${this.reconnectAttempts}/3)`
-            );
-
-            this.reconnectTimer = setTimeout(async () => {
-              this.reconnectTimer = null;
-
-              try {
-                await this.connectAfterDisconnect();
-              } catch (err) {
-                console.error('[AIBuddy] automatic reconnect failed:', err);
-              }
-            }, delay);
-
-            return;
-          }
-        }
-
-        this.setState('disconnected', `Gemini disconnected (${e.code})`);
       };
     } catch (err: any) {
-      console.error('[AIBuddy ERROR] connect failed:', err);
-      this.setState('error', 'Buddy needs internet to talk right now.');
+      console.error('[GeminiLive ERROR] Failed to connect:', err);
+      this.setState('error', 'Cannot reach Gemini Live. Check internet & retry.');
       if (this.onError) this.onError(err.message || 'Connection failed');
     }
   }
 
-  private async connectAfterDisconnect(): Promise<void> {
-    console.log('[AIBuddy] reconnecting after temporary Gemini disconnect');
-
-    try {
-      // Clean up the old socket reference.
-      this.ws = null;
-
-      const backendUrl =
-        (import.meta as any).env?.VITE_BACKEND_URL ||
-        'https://coloroo-kids-production.up.railway.app';
-
-      console.log(`[AIBuddy] requesting fresh ephemeral token from: ${backendUrl}/api/ai-buddy/token`);
-
-      const res = await fetch(`${backendUrl}/api/ai-buddy/token`, {
-        method: 'POST'
-      });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || `Server returned ${res.status}`);
-      }
-
-      const data = await res.json();
-      const ephemeralToken = data.token;
-      const model = data.model || 'gemini-3.1-flash-live-preview';
-
-      if (!ephemeralToken) {
-        throw new Error('Ephemeral token missing from backend response');
-      }
-
-      const wsUrl =
-        `wss://generativelanguage.googleapis.com/ws/` +
-        `google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained` +
-        `?access_token=${encodeURIComponent(ephemeralToken)}`;
-
-      const ws = new WebSocket(wsUrl);
-      this.ws = ws;
-
-      ws.onopen = () => {
-        console.log('[AIBuddy] Gemini Live RECONNECTED');
-        this.isConnected = true;
-        this.sendInitialSetup(model);
-
-        // Try to unlock/resume output audio after reconnect.
-        this.initOutputAudioContext();
-        if (this.outputAudioContext?.state === 'suspended') {
-          this.outputAudioContext.resume().catch((err) => {
-            console.warn('[AIBuddy AUDIO] resume after reconnect failed:', err);
-          });
-        }
-      };
-
-      ws.onmessage = async (event) => {
-        console.log('[AIBuddy WS] MESSAGE RECEIVED after reconnect');
-        await this.handleServerMessage(event.data);
-      };
-
-      ws.onerror = (e) => {
-        console.error('[AIBuddy RECONNECT ERROR]', e);
-      };
-
-      ws.onclose = (e) => {
-        console.log(
-          `[AIBuddy] RECONNECTED session CLOSED code=${e.code}, reason=${e.reason}`
-        );
-
-        this.isConnected = false;
-        this.stopAudioCapture();
-
-        if (!this.intentionalDisconnect && [1006, 1011, 1012].includes(e.code)) {
-          // Re-enter normal reconnect flow.
-          this.reconnectAttempts = Math.min(this.reconnectAttempts, 2);
-          this.setState('disconnected', `Gemini disconnected (${e.code})`);
-
-          if (this.reconnectAttempts < 3) {
-            this.reconnectAttempts++;
-
-            const delay = Math.min(1000 * this.reconnectAttempts, 3000);
-
-            this.setState(
-              'connecting',
-              `Reconnecting to Buddy... (${this.reconnectAttempts}/3)`
-            );
-
-            this.reconnectTimer = setTimeout(() => {
-              this.reconnectTimer = null;
-              this.connectAfterDisconnect().catch((err) => {
-                console.error('[AIBuddy] retry failed:', err);
-              });
-            }, delay);
-          }
-        }
-      };
-    } catch (err) {
-      console.error('[AIBuddy] reconnect setup failed:', err);
-
-      if (this.reconnectAttempts < 3 && !this.intentionalDisconnect) {
-        const delay = Math.min(1000 * this.reconnectAttempts, 3000);
-
-        this.reconnectTimer = setTimeout(() => {
-          this.reconnectTimer = null;
-          this.connectAfterDisconnect().catch(() => {});
-        }, delay);
-      } else {
-        this.setState('error', 'Gemini connection failed. Tap to retry!');
-      }
-    }
-  }
-
-  private sendInitialSetup(model: string) {
-    console.log('[AIBuddy] sending Gemini setup');
-    const setupMsg = {
+  private sendSetupMessage(model: string) {
+    const formattedModel = model.startsWith('models/') ? model : `models/${model}`;
+    const setupMessage = {
       setup: {
-        model: `models/${model}`,
+        model: formattedModel,
         generationConfig: {
           responseModalities: ['AUDIO'],
           speechConfig: {
@@ -278,16 +120,17 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
         }
       }
     };
-    this.ws?.send(JSON.stringify(setupMsg));
-    console.log('[AIBuddy] Gemini setup completed');
+
+    console.log('[GeminiLive] Sending setup config:', JSON.stringify(setupMessage));
+    this.ws?.send(JSON.stringify(setupMessage));
+    this.setState('ready', 'Tap to Talk with Buddy! 🎤');
   }
 
   public async startTalking(): Promise<void> {
-    console.log('[AIBuddy] startTalking() called');
-    this.frameCount = 0;
-
+    console.log('[GeminiLive] Starting microphone capture for Gemini...');
     try {
-      console.log('[AIBuddy] requesting microphone stream');
+      this.stopAllAudioPlayback();
+
       this.micStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           channelCount: 1,
@@ -297,19 +140,8 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
         }
       });
 
-      const audioTracks = this.micStream.getAudioTracks();
-      console.log('[AIBuddy] microphone stream obtained');
-      console.log(`[AIBuddy] stream.getAudioTracks().length: ${audioTracks.length}`);
-      if (audioTracks[0]) {
-        console.log(`[AIBuddy] audioTrack.readyState: ${audioTracks[0].readyState}`);
-        console.log(`[AIBuddy] audioTrack.enabled: ${audioTracks[0].enabled}`);
-        console.log(`[AIBuddy] audioTrack.muted: ${audioTracks[0].muted}`);
-      }
-
-      console.log('[AIBuddy] starting microphone capture');
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       this.inputAudioContext = new AudioCtx();
-      console.log(`[AIBuddy] inputAudioContext.sampleRate: ${this.inputAudioContext.sampleRate}`);
 
       if (this.inputAudioContext.state === 'suspended') {
         await this.inputAudioContext.resume();
@@ -320,27 +152,18 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
 
       this.processor.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
-        this.frameCount++;
-
-        if (this.frameCount <= 3 || this.frameCount % 50 === 0) {
-          console.log(`[AIBuddy AUDIO] frame received #${this.frameCount}, raw samples: ${inputData.length}`);
-        }
-
-        // Downsample from hardware rate (e.g. 48kHz/44.1kHz) to 16kHz Linear PCM
         const pcm16 = this.downsampleTo16kPCM(inputData, this.inputAudioContext!.sampleRate);
         const base64Audio = this.arrayBufferToBase64(pcm16);
-
-        if (this.frameCount <= 3 || this.frameCount % 50 === 0) {
-          console.log(`[AIBuddy AUDIO] sending audio chunk #${this.frameCount}, size = ${base64Audio.length}, mimeType = audio/pcm;rate=16000`);
-        }
 
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           const audioChunk = {
             realtimeInput: {
-              audio: {
-                data: base64Audio,
-                mimeType: 'audio/pcm;rate=16000'
-              }
+              mediaChunks: [
+                {
+                  mimeType: 'audio/pcm;rate=16000',
+                  data: base64Audio
+                }
+              ]
             }
           };
           this.ws.send(JSON.stringify(audioChunk));
@@ -350,36 +173,26 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
       this.source.connect(this.processor);
       this.processor.connect(this.inputAudioContext.destination);
 
-      console.log('[AIBuddy] audio capture started');
       this.setState('listening', 'Listening to you... 👂');
     } catch (err: any) {
-      console.error('[AIBuddy ERROR] getUserMedia/Audio capture error:', err);
-      this.setState('error', 'Microphone permission is needed so Buddy can hear you 🎤');
-      if (this.onError) this.onError('Microphone permission denied.');
+      console.error('[GeminiLive ERROR] getUserMedia error:', err);
+      this.setState('error', 'Microphone permission needed so Buddy can hear you 🎤');
+      if (this.onError) this.onError('Microphone access denied');
     }
   }
 
   public stopTalking(): void {
-    console.log('[AIBuddy] stopTalking() called');
-    if (this.frameCount === 0) {
-      console.log('[AIBuddy ERROR] MICROPHONE AUDIO FRAMES = 0');
-    } else {
-      console.log(`[AIBuddy] Total audio frames generated: ${this.frameCount}`);
-    }
-
+    console.log('[GeminiLive] User stopped talking. Sending turn complete signal...');
     this.stopAudioCapture();
     this.setState('thinking', 'Buddy is thinking... 🤖');
 
-    // Signal end of microphone audio stream.
-    // Gemini Live automatic activity detection handles the turn.
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const audioEndMsg = {
-        realtimeInput: {
-          audioStreamEnd: true
+      const clientTurnComplete = {
+        clientContent: {
+          turnComplete: true
         }
       };
-      console.log('[AIBuddy] sending realtimeInput audioStreamEnd: true');
-      this.ws.send(JSON.stringify(audioEndMsg));
+      this.ws.send(JSON.stringify(clientTurnComplete));
     }
   }
 
@@ -411,46 +224,21 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
 
     if (!msg) return;
 
-    console.log('[AIBuddy GEMINI RAW]', JSON.stringify(msg));
-
-    if (msg.setupComplete) {
-      console.log('[AIBuddy GEMINI] SETUP COMPLETE');
-      this.setState('ready', 'Tap to Talk with Buddy! 🎤');
-      return;
-    }
-
-    if (msg.error) {
-      console.error('[AIBuddy GEMINI ERROR]', JSON.stringify(msg.error));
-      this.setState('error', 'Gemini connection error. Tap to retry!');
-      return;
-    }
-
-    if (msg.serverContent) {
-      console.log('[AIBuddy GEMINI EVENT] serverContent received');
-    }
-    if (msg.toolCall) {
-      console.log('[AIBuddy GEMINI EVENT] toolCall received');
-    }
-
     // Handle Interruption
     if (msg.serverContent?.interrupted) {
-      console.log('[AIBuddy GEMINI EVENT] interruption detected');
+      console.log('[GeminiLive] Interruption received.');
       this.stopAllAudioPlayback();
       this.setState('ready', 'Listening...');
       return;
     }
 
-    // Handle Model Content (Text + Audio)
+    // Handle Model Content (Native Text + Audio)
     const parts = msg.serverContent?.modelTurn?.parts || [];
     for (const part of parts) {
-      if (part.text) {
-        console.log('[AIBuddy GEMINI EVENT] Text transcript:', part.text);
-        if (this.onTranscript) {
-          this.onTranscript({ sender: 'buddy', text: part.text });
-        }
+      if (part.text && this.onTranscript) {
+        this.onTranscript({ sender: 'buddy', text: part.text });
       }
       if (part.inlineData && part.inlineData.data) {
-        console.log(`[AIBuddy GEMINI EVENT] Native PCM audio chunk received (size: ${part.inlineData.data.length})`);
         this.setState('speaking', 'Buddy is speaking... 🔊');
         const pcmData = this.base64ToArrayBuffer(part.inlineData.data);
         this.playPCMChunk(pcmData, 24000);
@@ -458,12 +246,11 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     }
 
     if (msg.serverContent?.turnComplete) {
-      console.log('[AIBuddy GEMINI EVENT] turn complete');
       setTimeout(() => {
         if (this.scheduledAudioSources.length === 0) {
-          this.setState('ready', 'Tap to Talk! 🎤');
+          this.setState('ready', 'Tap to Talk with Buddy! 🎤');
         }
-      }, 500);
+      }, 400);
     }
   }
 
@@ -503,12 +290,12 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
     source.onended = () => {
       this.scheduledAudioSources = this.scheduledAudioSources.filter((s) => s !== source);
       if (this.scheduledAudioSources.length === 0) {
-        this.setState('ready', 'Tap to Talk! 🎤');
+        this.setState('ready', 'Tap to Talk with Buddy! 🎤');
       }
     };
   }
 
-  private stopAllAudioPlayback(): void {
+  public stopAllAudioPlayback(): void {
     this.scheduledAudioSources.forEach((source) => {
       try { source.stop(); } catch {}
     });
@@ -519,15 +306,7 @@ If an inappropriate question is asked, respond safely and redirect to a fun lear
   }
 
   public disconnect(): void {
-    console.log('[AIBuddy] session disconnecting');
-    this.intentionalDisconnect = true;
-    this.reconnectAttempts = 0;
-
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
+    console.log('[GeminiLive] Disconnecting session...');
     this.stopAudioCapture();
     this.stopAllAudioPlayback();
     if (this.ws) {
