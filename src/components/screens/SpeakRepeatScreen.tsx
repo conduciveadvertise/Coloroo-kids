@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronLeft,
-  Play,
-  Pause,
-  RotateCcw,
   Volume2,
+  Mic,
+  RotateCcw,
   Sparkles,
   BookOpen,
-  Award
+  Award,
+  ArrowRight,
+  CheckCircle2
 } from 'lucide-react';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { SPEAK_REPEAT_LESSONS, SpeakLesson } from '../../data/speakRepeatData';
@@ -19,10 +20,10 @@ interface SpeakRepeatScreenProps {
   onAddStars?: (amount: number) => void;
 }
 
-interface WordToken {
+interface PhraseSegment {
+  id: number;
   text: string;
-  cleanWord: string;
-  globalIndex: number;
+  cleanText: string;
   paragraphIndex: number;
 }
 
@@ -31,57 +32,87 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
   onAddStars
 }) => {
   const [currentLesson] = useState<SpeakLesson>(SPEAK_REPEAT_LESSONS[0]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [currentWordIndex, setCurrentWordIndex] = useState<number>(-1);
+  const [activePhraseIndex, setActivePhraseIndex] = useState<number>(0);
+  const [mode, setMode] = useState<'idle' | 'listening_ai' | 'waiting_user' | 'recording_user' | 'success'>('idle');
+  const [userSpokenText, setUserSpokenText] = useState<string>('');
+  const [speechRate, setSpeechRate] = useState<number>(0.85);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [speechRate, setSpeechRate] = useState<number>(0.85); // Child-friendly pace
+  const [statusMessage, setStatusMessage] = useState<string>('Tap "Listen & Repeat" to start!');
+  const [hasMicSupport, setHasMicSupport] = useState<boolean>(true);
 
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const timerRef = useRef<any>(null);
-  const totalWordsCountRef = useRef<number>(0);
-  const wordsListRef = useRef<WordToken[]>([]);
+  const recognitionRef = useRef<any>(null);
 
-  // Tokenize lesson into words
-  const parsedParagraphs = React.useMemo(() => {
-    let count = 0;
-    const allTokens: WordToken[] = [];
-    const tokenized = currentLesson.paragraphs.map((para, pIdx) => {
-      const rawWords = para.split(/(\s+)/);
-      return rawWords.map((part) => {
-        const isWhitespace = /^\s+$/.test(part) || part === '';
-        if (isWhitespace) {
-          return { text: part, isWord: false, globalIndex: -1, paragraphIndex: pIdx };
+  // Divide paragraph text into child-friendly phrases/clauses
+  const segments: PhraseSegment[] = React.useMemo(() => {
+    const list: PhraseSegment[] = [];
+    let idx = 0;
+    currentLesson.paragraphs.forEach((para, pIdx) => {
+      // Split by sentences and commas to make digestible practice phrases
+      const clauses = para.match(/[^.,!?]+[.,!?]?/g) || [para];
+      clauses.forEach((cl) => {
+        const trimmed = cl.trim();
+        if (trimmed) {
+          list.push({
+            id: idx++,
+            text: trimmed,
+            cleanText: trimmed.toLowerCase().replace(/[^a-z0-9\s]/g, ''),
+            paragraphIndex: pIdx
+          });
         }
-        const gIdx = count++;
-        const token: WordToken = {
-          text: part,
-          cleanWord: part.replace(/[^a-zA-Z0-9]/g, ''),
-          globalIndex: gIdx,
-          paragraphIndex: pIdx
-        };
-        allTokens.push(token);
-        return { text: part, isWord: true, globalIndex: gIdx, paragraphIndex: pIdx };
       });
     });
-
-    totalWordsCountRef.current = count;
-    wordsListRef.current = allTokens;
-    return tokenized;
+    return list;
   }, [currentLesson]);
 
-  // Clean up speech on unmount
+  // Initialize Web Speech Recognition with graceful fallback
   useEffect(() => {
-    return () => {
-      stopSpeech();
-    };
-  }, []);
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
 
-  const stopSpeech = async () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join('');
+        setUserSpokenText(transcript);
+
+        // Check if child spoke the current phrase reasonably correctly
+        validateSpokenPhrase(transcript);
+      };
+
+      recognition.onerror = (e: any) => {
+        console.log('[SpeakRepeat SpeechRecognition error]', e);
+        if (mode === 'recording_user') {
+          setMode('waiting_user');
+          setStatusMessage('Buddy didn\'t hear clearly. Try again or tap Skip ➡️');
+        }
+      };
+
+      recognition.onend = () => {
+        if (mode === 'recording_user') {
+          setMode('waiting_user');
+        }
+      };
+
+      recognitionRef.current = recognition;
+    } else {
+      setHasMicSupport(false);
     }
+
+    return () => {
+      stopAllAudio();
+    };
+  }, [activePhraseIndex, mode]);
+
+  const stopAllAudio = async () => {
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    } catch {}
     try {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -92,317 +123,340 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
     } catch {}
   };
 
-  const handlePlay = () => {
-    sound.playPop();
-    if (isPaused) {
-      resumeSpeech();
-    } else {
-      startSpeechFromWord(0);
-    }
-  };
+  const playCurrentPhrase = async (phraseIndex: number) => {
+    const phrase = segments[phraseIndex];
+    if (!phrase) return;
 
-  const startSpeechFromWord = async (startIndex: number = 0) => {
-    await stopSpeech();
-    setIsPlaying(true);
-    setIsPaused(false);
-    setIsCompleted(false);
-    setCurrentWordIndex(startIndex);
+    await stopAllAudio();
+    setMode('listening_ai');
+    setStatusMessage('Listen to Buddy speak... 👂');
+    setUserSpokenText('');
 
-    const fullText = currentLesson.paragraphs.join(' ');
-
-    // Browser SpeechSynthesis with Boundary Event support
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(fullText);
+      const utterance = new SpeechSynthesisUtterance(phrase.text);
       utterance.rate = speechRate;
-      utterance.pitch = 1.1; // Friendly tone for kids
+      utterance.pitch = 1.1;
       utterance.lang = 'en-US';
 
-      utterance.onboundary = (event) => {
-        if (event.name === 'word') {
-          const charIndex = event.charIndex;
-          // Calculate active word from char position
-          let cumulativeLength = 0;
-          for (let i = 0; i < wordsListRef.current.length; i++) {
-            const word = wordsListRef.current[i];
-            const wordLen = word.text.length + 1;
-            if (charIndex >= cumulativeLength && charIndex < cumulativeLength + wordLen) {
-              setCurrentWordIndex(i);
-              break;
-            }
-            cumulativeLength += wordLen;
-          }
-        }
-      };
-
       utterance.onend = () => {
-        finishSpeech();
+        promptUserToSpeak();
       };
-
       utterance.onerror = () => {
-        fallbackTimerReading(startIndex);
+        promptUserToSpeak();
       };
 
-      utteranceRef.current = utterance;
       window.speechSynthesis.speak(utterance);
     } else {
-      // Fallback timer for environments without native boundary events
-      fallbackTimerReading(startIndex);
+      try {
+        await TextToSpeech.speak({
+          text: phrase.text,
+          lang: 'en-US',
+          rate: speechRate,
+          pitch: 1.1
+        });
+      } catch {}
+      promptUserToSpeak();
     }
   };
 
-  const fallbackTimerReading = async (startIndex: number) => {
-    const fullText = currentLesson.paragraphs.join(' ');
-    try {
-      await TextToSpeech.speak({
-        text: fullText,
-        lang: 'en-US',
-        rate: speechRate,
-        pitch: 1.1
-      });
-    } catch {}
+  const promptUserToSpeak = () => {
+    setMode('waiting_user');
+    setStatusMessage('Now your turn! Tap the Mic & Repeat aloud 🎤');
+  };
 
-    let current = startIndex;
-    // Estimated average word duration based on speechRate (~350ms per word)
-    const wordIntervalMs = Math.round(380 / speechRate);
+  const handleStartListeningUser = () => {
+    sound.playPop();
+    setUserSpokenText('');
 
-    timerRef.current = setInterval(() => {
-      if (current < totalWordsCountRef.current) {
-        setCurrentWordIndex(current);
-        current++;
-      } else {
-        finishSpeech();
+    if (recognitionRef.current) {
+      try {
+        setMode('recording_user');
+        setStatusMessage('Listening to your voice... Speak clearly! 🌟');
+        recognitionRef.current.start();
+      } catch {
+        // Recognition might already be running
+        setMode('recording_user');
       }
-    }, wordIntervalMs);
-  };
-
-  const handlePause = async () => {
-    sound.playPop();
-    setIsPaused(true);
-    setIsPlaying(false);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.pause();
-    }
-    try {
-      await TextToSpeech.stop();
-    } catch {}
-  };
-
-  const resumeSpeech = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-      setIsPaused(false);
-      setIsPlaying(true);
     } else {
-      startSpeechFromWord(currentWordIndex >= 0 ? currentWordIndex : 0);
+      // Graceful fallback when SpeechRecognition is not available
+      setUserSpokenText('Great repeating!');
+      handleAdvancePhrase();
     }
   };
 
-  const handleReplay = () => {
+  const validateSpokenPhrase = (spoken: string) => {
+    const current = segments[activePhraseIndex];
+    if (!current) return;
+
+    const targetWords = current.cleanText.split(/\s+/).filter(Boolean);
+    const spokenWords = spoken.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+
+    // Fuzzy match: if child repeats at least 50% of the target words in the phrase
+    const matchedCount = targetWords.filter((tw) => spokenWords.some((sw) => sw.includes(tw) || tw.includes(sw))).length;
+    const matchRatio = matchedCount / Math.max(1, targetWords.length);
+
+    if (matchRatio >= 0.5 || spokenWords.length >= targetWords.length) {
+      setMode('success');
+      setStatusMessage('Excellent! Moving to the next phrase! ⭐');
+      sound.playFanfare();
+
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch {}
+      }
+
+      setTimeout(() => {
+        handleAdvancePhrase();
+      }, 1000);
+    }
+  };
+
+  const handleAdvancePhrase = () => {
+    if (activePhraseIndex < segments.length - 1) {
+      const nextIdx = activePhraseIndex + 1;
+      setActivePhraseIndex(nextIdx);
+      playCurrentPhrase(nextIdx);
+    } else {
+      // Completed full lesson
+      setMode('idle');
+      setIsCompleted(true);
+      setStatusMessage('Lesson complete! Fantastic speaking! 🎉');
+      sound.playFanfare();
+      if (onAddStars) {
+        onAddStars(5);
+      }
+    }
+  };
+
+  const handleReplayCurrent = () => {
     sound.playPop();
-    startSpeechFromWord(0);
+    playCurrentPhrase(activePhraseIndex);
   };
 
-  const finishSpeech = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setIsPlaying(false);
-    setIsPaused(false);
-    setCurrentWordIndex(-1);
-    setIsCompleted(true);
-    sound.playFanfare();
-    if (onAddStars) {
-      onAddStars(5);
-    }
+  const handleRestartFullLesson = () => {
+    sound.playPop();
+    setIsCompleted(false);
+    setActivePhraseIndex(0);
+    playCurrentPhrase(0);
   };
 
   return (
-    <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-4 select-none overflow-hidden bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FEF3C7] text-slate-800">
-      {/* Top Navigation Bar */}
-      <div className="flex items-center justify-between gap-3 shrink-0">
+    <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-3 select-none overflow-hidden bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FEF3C7] text-slate-800">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 shrink-0 mb-1">
         <button
           onClick={() => {
             sound.playPop();
-            stopSpeech();
+            stopAllAudio();
             onBack();
           }}
-          className="p-1.5 sm:p-2 rounded-2xl bg-white hover:bg-orange-50 active:scale-95 text-orange-950 flex items-center gap-1.5 border-2 border-orange-200 shadow-sm cursor-pointer transition-transform"
+          className="p-1.5 sm:p-2 rounded-2xl bg-white hover:bg-orange-50 active:scale-95 text-orange-950 flex items-center gap-1.5 border-2 border-orange-200 shadow-sm cursor-pointer"
         >
-          <ChevronLeft className="w-5 h-5 text-orange-600" />
-          <span className="text-xs sm:text-sm font-black font-sans">Home</span>
+          <ChevronLeft className="w-4 h-4 text-orange-600" />
+          <span className="text-xs font-black font-sans">Home</span>
         </button>
 
-        <div className="flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-2xl border-2 border-orange-200 shadow-sm">
-          <BookOpen className="w-4 h-4 text-orange-500" />
-          <h1 className="text-xs sm:text-sm font-black text-orange-950 font-sans tracking-wide">
+        <div className="flex items-center gap-1.5 bg-white px-3 py-1 rounded-2xl border-2 border-orange-200 shadow-sm">
+          <BookOpen className="w-3.5 h-3.5 text-orange-500" />
+          <h1 className="text-xs sm:text-sm font-black text-orange-950 font-sans">
             Speak & Repeat 🗣️
           </h1>
-          <span className="text-[10px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300">
-            {currentLesson.badge}
+          <span className="text-[9px] bg-amber-100 text-amber-900 font-extrabold px-2 py-0.5 rounded-full border border-amber-300 ml-1">
+            Phrase {activePhraseIndex + 1}/{segments.length}
           </span>
         </div>
 
-        {/* Speed Adjustment Control */}
         <button
           onClick={() => {
             sound.playPop();
             const nextRate = speechRate === 0.85 ? 0.7 : speechRate === 0.7 ? 1.0 : 0.85;
             setSpeechRate(nextRate);
           }}
-          className="px-2.5 py-1.5 rounded-2xl bg-white hover:bg-orange-50 text-orange-800 border-2 border-orange-200 shadow-sm text-[11px] font-black cursor-pointer flex items-center gap-1"
-          title="Speech Speed"
+          className="px-2.5 py-1 rounded-xl bg-white hover:bg-orange-50 text-orange-800 border border-orange-200 shadow-sm text-[10px] font-black cursor-pointer flex items-center gap-1"
         >
-          <Volume2 className="w-3.5 h-3.5 text-orange-600" />
+          <Volume2 className="w-3 h-3 text-orange-600" />
           <span>{speechRate === 0.7 ? 'Slow 🐢' : speechRate === 0.85 ? 'Normal 🐇' : 'Fast ⚡'}</span>
         </button>
       </div>
 
-      {/* Main Reading Card Area */}
-      <div className="flex-1 my-2 sm:my-3 bg-white rounded-[28px] p-4 sm:p-6 border-4 border-orange-200 shadow-xl flex flex-col justify-between overflow-hidden relative">
-        {/* Lesson Header */}
-        <div className="flex items-center justify-between border-b-2 border-orange-100 pb-2.5 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <span className="text-3xl sm:text-4xl filter drop-shadow">
-              {currentLesson.emoji}
-            </span>
+      {/* Main Reading Card */}
+      <div className="flex-1 bg-white rounded-[24px] p-3 sm:p-4 border-3 border-orange-200 shadow-lg flex flex-col justify-between overflow-hidden relative min-h-0">
+        {/* Lesson Header Sub-bar */}
+        <div className="flex items-center justify-between border-b border-orange-100 pb-1.5 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl filter drop-shadow">{currentLesson.emoji}</span>
             <div>
-              <h2 className="text-lg sm:text-2xl font-black text-slate-800 font-sans leading-tight">
+              <h2 className="text-sm sm:text-base font-black text-slate-800 font-sans leading-tight">
                 {currentLesson.title}
               </h2>
-              <p className="text-[11px] sm:text-xs font-bold text-orange-600">
-                Listen carefully and speak along!
+              <p className="text-[10px] font-bold text-orange-600">
+                Listen, then tap the mic to repeat!
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 bg-orange-50 text-orange-800 px-3 py-1 rounded-xl border border-orange-200 font-black text-xs">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-400" />
-            <span>Karaoke Reading</span>
+          <div className="flex items-center gap-1 bg-orange-50 text-orange-800 px-2 py-0.5 rounded-lg border border-orange-200 font-bold text-[10px]">
+            <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
+            <span>Interactive Practice</span>
           </div>
         </div>
 
-        {/* Paragraphs with Dynamic Word-by-Word Highlighting */}
-        <div className="flex-1 flex flex-col justify-center space-y-3 sm:space-y-4 py-3 overflow-y-auto no-scrollbar">
-          {parsedParagraphs.map((paraTokens, pIdx) => (
-            <p
-              key={pIdx}
-              className="text-base sm:text-xl md:text-2xl font-black text-slate-700 leading-relaxed sm:leading-loose tracking-wide font-sans flex flex-wrap items-center gap-x-1 sm:gap-x-1.5"
-            >
-              {paraTokens.map((item, wIdx) => {
-                if (!item.isWord) {
-                  return <span key={wIdx}>{item.text}</span>;
-                }
+        {/* Compact Paragraphs with Phrase-Level Highlighting */}
+        <div className="flex-1 flex flex-col justify-center space-y-2 sm:space-y-2.5 py-2 overflow-y-auto no-scrollbar">
+          {currentLesson.paragraphs.map((para, pIdx) => {
+            const paraSegments = segments.filter((s) => s.paragraphIndex === pIdx);
+            return (
+              <p
+                key={pIdx}
+                className="text-xs sm:text-sm md:text-base font-bold text-slate-700 leading-relaxed font-sans flex flex-wrap items-center gap-x-1"
+              >
+                {paraSegments.map((seg) => {
+                  const isActive = seg.id === activePhraseIndex;
+                  const isDone = seg.id < activePhraseIndex;
 
-                const isActive = isPlaying && currentWordIndex === item.globalIndex;
-                const isPast = isPlaying && currentWordIndex > item.globalIndex;
-
-                return (
-                  <motion.span
-                    key={wIdx}
-                    animate={{
-                      scale: isActive ? 1.18 : 1,
-                      y: isActive ? -2 : 0
-                    }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                    className={`inline-block px-1.5 py-0.5 rounded-xl transition-colors duration-150 ${
-                      isActive
-                        ? 'bg-amber-400 text-slate-950 shadow-md ring-2 ring-amber-300 font-black scale-110'
-                        : isPast
-                        ? 'text-orange-950 font-extrabold'
-                        : 'text-slate-700 font-bold'
-                    }`}
-                  >
-                    {item.text}
-                  </motion.span>
-                );
-              })}
-            </p>
-          ))}
+                  return (
+                    <motion.span
+                      key={seg.id}
+                      animate={{
+                        scale: isActive ? 1.04 : 1
+                      }}
+                      className={`inline-block px-1.5 py-0.5 rounded-lg transition-all duration-200 ${
+                        isActive
+                          ? 'bg-amber-300 text-slate-950 font-black shadow-sm ring-2 ring-amber-400'
+                          : isDone
+                          ? 'text-emerald-700 font-extrabold bg-emerald-50/60'
+                          : 'text-slate-600'
+                      }`}
+                    >
+                      {seg.text}
+                    </motion.span>
+                  );
+                })}
+              </p>
+            );
+          })}
         </div>
+
+        {/* Live Spoken Feedback Ribbon */}
+        {userSpokenText && (
+          <div className="bg-purple-50 border border-purple-200 rounded-xl px-2.5 py-1 text-[11px] font-bold text-purple-900 flex items-center gap-1.5 shrink-0 my-1">
+            <span>You said:</span>
+            <span className="italic text-purple-700">"{userSpokenText}"</span>
+          </div>
+        )}
 
         {/* Completion Celebration Overlay */}
         <AnimatePresence>
           {isCompleted && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-x-4 bottom-16 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-white rounded-2xl p-2.5 shadow-lg flex items-center justify-between z-10 border-2 border-white"
+              className="absolute inset-x-3 bottom-14 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-white rounded-2xl p-2.5 shadow-xl flex items-center justify-between z-10 border-2 border-white"
             >
               <div className="flex items-center gap-2">
-                <Award className="w-6 h-6 text-yellow-200 fill-yellow-200 animate-bounce" />
+                <Award className="w-5 h-5 text-yellow-200 fill-yellow-200 animate-bounce" />
                 <div>
-                  <h4 className="text-xs sm:text-sm font-black font-sans">Awesome Job! 🌟</h4>
-                  <p className="text-[10px] sm:text-xs font-bold text-white/90">
-                    You practiced speaking like a champion! +5 Stars
+                  <h4 className="text-xs sm:text-sm font-black font-sans">Great Speaking! 🌟</h4>
+                  <p className="text-[10px] font-bold text-white/90">
+                    You practiced the entire lesson! +5 Stars
                   </p>
                 </div>
               </div>
               <button
-                onClick={handleReplay}
+                onClick={handleRestartFullLesson}
                 className="px-3 py-1 rounded-xl bg-white text-orange-950 font-black text-xs shadow hover:scale-105 active:scale-95 transition-all cursor-pointer"
               >
-                Read Again 🔁
+                Repeat Lesson 🔁
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Action Controls Bar */}
-        <div className="pt-2 border-t-2 border-orange-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] sm:text-xs font-bold text-slate-500">
-              {isPlaying ? 'Speaking out loud...' : isPaused ? 'Paused' : 'Ready to start'}
-            </span>
+        {/* Interactive Action Controls */}
+        <div className="pt-2 border-t border-orange-100 flex items-center justify-between shrink-0">
+          <div className="flex flex-col text-left max-w-[50%]">
+            <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">Step</span>
+            <span className="text-[11px] font-black text-slate-800 truncate">{statusMessage}</span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Replay Button */}
+          <div className="flex items-center gap-2">
+            {/* Replay Phrase Button */}
             <button
-              onClick={handleReplay}
-              className="p-2 sm:p-2.5 rounded-2xl bg-orange-100 hover:bg-orange-200 text-orange-900 border-2 border-orange-200 shadow-sm active:scale-95 transition-all cursor-pointer flex items-center gap-1 text-xs font-black"
-              title="Replay Lesson"
+              onClick={handleReplayCurrent}
+              className="p-2 rounded-xl bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-200 shadow-sm active:scale-95 transition-all cursor-pointer"
+              title="Hear Phrase Again"
             >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">Replay</span>
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
 
-            {/* Play / Pause Toggle */}
-            {!isPlaying ? (
+            {/* Listen / Record Toggle Button */}
+            {mode === 'idle' ? (
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handlePlay}
-                className="px-5 sm:px-7 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg border-2 border-white ring-4 ring-orange-200 cursor-pointer"
+                onClick={() => playCurrentPhrase(activePhraseIndex)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md border border-white cursor-pointer"
               >
-                <Play className="w-4 h-4 fill-white" />
-                <span>{isPaused ? 'Resume Reading' : 'Listen & Repeat 🗣️'}</span>
+                <Volume2 className="w-4 h-4" />
+                <span>Start Lesson 🗣️</span>
               </motion.button>
+            ) : mode === 'listening_ai' ? (
+              <div className="px-4 py-2 rounded-xl bg-amber-100 text-amber-900 font-black text-xs flex items-center gap-1.5 border border-amber-300 animate-pulse">
+                <Volume2 className="w-4 h-4" />
+                <span>Buddy Speaking...</span>
+              </div>
+            ) : mode === 'recording_user' ? (
+              <motion.button
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ repeat: Infinity, duration: 1 }}
+                onClick={() => {
+                  if (recognitionRef.current) {
+                    try { recognitionRef.current.stop(); } catch {}
+                  }
+                  setMode('waiting_user');
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md ring-2 ring-rose-300 cursor-pointer"
+              >
+                <Mic className="w-4 h-4 animate-bounce" />
+                <span>Listening... (Tap to finish)</span>
+              </motion.button>
+            ) : mode === 'success' ? (
+              <div className="px-4 py-2 rounded-xl bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Well Done!</span>
+              </div>
             ) : (
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={handlePause}
-                className="px-5 sm:px-7 py-2.5 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg border-2 border-white ring-4 ring-rose-200 cursor-pointer"
+                onClick={handleStartListeningUser}
+                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs flex items-center gap-1.5 shadow-md border border-white ring-2 ring-emerald-200 cursor-pointer"
               >
-                <Pause className="w-4 h-4 fill-white" />
-                <span>Pause</span>
+                <Mic className="w-4 h-4" />
+                <span>Tap & Repeat 🎤</span>
               </motion.button>
             )}
+
+            {/* Skip / Next Phrase Button */}
+            <button
+              onClick={() => {
+                sound.playPop();
+                handleAdvancePhrase();
+              }}
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-sm active:scale-95 transition-all cursor-pointer"
+              title="Skip to next phrase"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Footer Info */}
-      <div className="flex items-center justify-between text-[10px] font-bold text-orange-900/70 px-2 shrink-0">
-        <span>Coloroo Kids • Phonics & Speech Practice</span>
-        <span>Tap Listen & Repeat to hear each word ✨</span>
+      {/* Footer */}
+      <div className="flex items-center justify-between text-[9px] font-bold text-orange-900/70 px-2 shrink-0">
+        <span>Listen $ightarrow$ Tap Mic $ightarrow$ Speak to advance</span>
+        <span>Phonics & Reading Practice ✨</span>
       </div>
     </div>
   );
