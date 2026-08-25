@@ -54,6 +54,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const cards = [
     {
+      id: 'speak-repeat',
+      type: 'screen' as const,
+      tag: '🗣️ SPEAK & REPEAT',
+      badge: 'Reading',
+      title: 'Speak & Repeat',
+      desc: 'Listen, practice & speak aloud!',
+      iconEmoji: '🗣️',
+      secondaryEmoji: '📖',
+      btnText: 'Practice Speaking',
+      borderBottom: 'border-b-[#E67E22]',
+      badgeBg: 'bg-[#E67E22]',
+      bgGradient: 'from-[#f39c12] via-[#e67e22] to-[#d35400]',
+      btnBg: 'bg-[#E67E22] hover:bg-[#d35400]'
+    },
+    {
       id: 'ai-buddy',
       type: 'screen' as const,
       tag: '🤖 AI BUDDY',
@@ -229,7 +244,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 sound.playPop();
                 if (card.type === 'parent') {
                   onOpenParentGate();
-                } else if (card.id === 'ai-buddy') {
+                } else if (card.id === 'speak-repeat') {
+              onNavigate('speak-repeat');
+            } else if (card.id === 'ai-buddy') {
               onNavigate('ai-buddy');
             } else if (card.id === 'coloring') {
                   onSelectColoringPage(featuredPage.id);

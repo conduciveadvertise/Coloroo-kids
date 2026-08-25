@@ -42,6 +42,7 @@ import { BuddyScreen } from './components/screens/BuddyScreen';
 import { ParentGateModal } from './components/ParentGateModal';
 import { MissionsAndBadgesModal } from './components/screens/MissionsAndBadgesModal';
 import { AIBuddyScreen } from './components/screens/AIBuddyScreen';
+import { SpeakRepeatScreen } from './components/screens/SpeakRepeatScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
