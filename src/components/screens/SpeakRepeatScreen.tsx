@@ -37,18 +37,17 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
   const [userSpokenText, setUserSpokenText] = useState<string>('');
   const [speechRate, setSpeechRate] = useState<number>(0.85);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string>('Tap "Listen & Repeat" to start!');
-  const [hasMicSupport, setHasMicSupport] = useState<boolean>(true);
+  const [statusMessage, setStatusMessage] = useState<string>('Tap "Start Lesson" to begin!');
 
   const recognitionRef = useRef<any>(null);
+  const isSpeakingRef = useRef<boolean>(false);
 
-  // Divide paragraph text into child-friendly phrases/clauses
+  // Divide paragraph text into clean practice phrases
   const segments: PhraseSegment[] = React.useMemo(() => {
     const list: PhraseSegment[] = [];
     let idx = 0;
     currentLesson.paragraphs.forEach((para, pIdx) => {
-      // Split by sentences and commas to make digestible practice phrases
-      const clauses = para.match(/[^.,!?]+[.,!?]?/g) || [para];
+      const clauses = para.match(/[^.!?]+[.!?]?/g) || [para];
       clauses.forEach((cl) => {
         const trimmed = cl.trim();
         if (trimmed) {
@@ -64,7 +63,7 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
     return list;
   }, [currentLesson]);
 
-  // Initialize Web Speech Recognition with graceful fallback
+  // Initialize Speech Recognition cleanly without interrupting TTS
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -78,28 +77,24 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
           .map((result: any) => result[0].transcript)
           .join('');
         setUserSpokenText(transcript);
-
-        // Check if child spoke the current phrase reasonably correctly
         validateSpokenPhrase(transcript);
       };
 
       recognition.onerror = (e: any) => {
         console.log('[SpeakRepeat SpeechRecognition error]', e);
-        if (mode === 'recording_user') {
+        if (!isSpeakingRef.current) {
           setMode('waiting_user');
-          setStatusMessage('Buddy didn\'t hear clearly. Try again or tap Skip ➡️');
+          setStatusMessage("Buddy didn't hear clearly. Tap Mic & try again! 🎤");
         }
       };
 
       recognition.onend = () => {
-        if (mode === 'recording_user') {
+        if (!isSpeakingRef.current && mode === 'recording_user') {
           setMode('waiting_user');
         }
       };
 
       recognitionRef.current = recognition;
-    } else {
-      setHasMicSupport(false);
     }
 
     return () => {
@@ -108,18 +103,19 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
   }, [activePhraseIndex, mode]);
 
   const stopAllAudio = async () => {
+    isSpeakingRef.current = false;
     try {
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
     } catch {}
     try {
+      await TextToSpeech.stop();
+    } catch {}
+    try {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
-    } catch {}
-    try {
-      await TextToSpeech.stop();
     } catch {}
   };
 
@@ -128,35 +124,46 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
     if (!phrase) return;
 
     await stopAllAudio();
+    isSpeakingRef.current = true;
     setMode('listening_ai');
     setStatusMessage('Listen to Buddy speak... 👂');
     setUserSpokenText('');
 
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(phrase.text);
-      utterance.rate = speechRate;
-      utterance.pitch = 1.1;
-      utterance.lang = 'en-US';
-
-      utterance.onend = () => {
-        promptUserToSpeak();
-      };
-      utterance.onerror = () => {
-        promptUserToSpeak();
-      };
-
-      window.speechSynthesis.speak(utterance);
-    } else {
-      try {
-        await TextToSpeech.speak({
-          text: phrase.text,
-          lang: 'en-US',
-          rate: speechRate,
-          pitch: 1.1
-        });
-      } catch {}
+    try {
+      // Use native Capacitor TTS for reliable complete sentence delivery
+      await TextToSpeech.speak({
+        text: phrase.text,
+        lang: 'en-US',
+        rate: speechRate,
+        pitch: 1.05,
+        volume: 1.0,
+        category: 'ambient'
+      });
+      isSpeakingRef.current = false;
       promptUserToSpeak();
+    } catch {
+      // Fallback to Web Speech Synthesis if Capacitor TTS is unavailable
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(phrase.text);
+        utterance.rate = speechRate;
+        utterance.pitch = 1.05;
+        utterance.lang = 'en-US';
+
+        utterance.onend = () => {
+          isSpeakingRef.current = false;
+          promptUserToSpeak();
+        };
+        utterance.onerror = () => {
+          isSpeakingRef.current = false;
+          promptUserToSpeak();
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } else {
+        isSpeakingRef.current = false;
+        promptUserToSpeak();
+      }
     }
   };
 
@@ -175,11 +182,9 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
         setStatusMessage('Listening to your voice... Speak clearly! 🌟');
         recognitionRef.current.start();
       } catch {
-        // Recognition might already be running
         setMode('recording_user');
       }
     } else {
-      // Graceful fallback when SpeechRecognition is not available
       setUserSpokenText('Great repeating!');
       handleAdvancePhrase();
     }
@@ -192,13 +197,14 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
     const targetWords = current.cleanText.split(/\s+/).filter(Boolean);
     const spokenWords = spoken.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
 
-    // Fuzzy match: if child repeats at least 50% of the target words in the phrase
-    const matchedCount = targetWords.filter((tw) => spokenWords.some((sw) => sw.includes(tw) || tw.includes(sw))).length;
+    const matchedCount = targetWords.filter((tw) =>
+      spokenWords.some((sw) => sw.includes(tw) || tw.includes(sw))
+    ).length;
     const matchRatio = matchedCount / Math.max(1, targetWords.length);
 
-    if (matchRatio >= 0.5 || spokenWords.length >= targetWords.length) {
+    if (matchRatio >= 0.45 || spokenWords.length >= targetWords.length) {
       setMode('success');
-      setStatusMessage('Excellent! Moving to the next phrase! ⭐');
+      setStatusMessage('Excellent! Moving to next phrase! ⭐');
       sound.playFanfare();
 
       if (recognitionRef.current) {
@@ -207,7 +213,7 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
 
       setTimeout(() => {
         handleAdvancePhrase();
-      }, 1000);
+      }, 900);
     }
   };
 
@@ -217,7 +223,6 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
       setActivePhraseIndex(nextIdx);
       playCurrentPhrase(nextIdx);
     } else {
-      // Completed full lesson
       setMode('idle');
       setIsCompleted(true);
       setStatusMessage('Lesson complete! Fantastic speaking! 🎉');
@@ -242,7 +247,7 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
 
   return (
     <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-3 select-none overflow-hidden bg-gradient-to-br from-[#FFF7ED] via-[#FFEDD5] to-[#FEF3C7] text-slate-800">
-      {/* Header */}
+      {/* Top Header */}
       <div className="flex items-center justify-between gap-3 shrink-0 mb-1">
         <button
           onClick={() => {
@@ -279,10 +284,10 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
         </button>
       </div>
 
-      {/* Main Reading Card */}
-      <div className="flex-1 bg-white rounded-[24px] p-3 sm:p-4 border-3 border-orange-200 shadow-lg flex flex-col justify-between overflow-hidden relative min-h-0">
-        {/* Lesson Header Sub-bar */}
-        <div className="flex items-center justify-between border-b border-orange-100 pb-1.5 shrink-0">
+      {/* Main Reading Card with Safe Edge Padding */}
+      <div className="flex-1 bg-white rounded-[24px] p-3 sm:p-5 border-3 border-orange-200 shadow-lg flex flex-col justify-between overflow-hidden relative min-h-0">
+        {/* Sub-bar */}
+        <div className="flex items-center justify-between border-b border-orange-100 pb-1.5 px-2 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-2xl filter drop-shadow">{currentLesson.emoji}</span>
             <div>
@@ -301,14 +306,14 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
           </div>
         </div>
 
-        {/* Compact Paragraphs with Phrase-Level Highlighting */}
-        <div className="flex-1 flex flex-col justify-center space-y-2 sm:space-y-2.5 py-2 overflow-y-auto no-scrollbar">
+        {/* Text Container with Generous Left/Right Padding */}
+        <div className="flex-1 flex flex-col justify-center space-y-2.5 sm:space-y-3.5 py-2 px-3 sm:px-6 overflow-y-auto no-scrollbar">
           {currentLesson.paragraphs.map((para, pIdx) => {
             const paraSegments = segments.filter((s) => s.paragraphIndex === pIdx);
             return (
               <p
                 key={pIdx}
-                className="text-xs sm:text-sm md:text-base font-bold text-slate-700 leading-relaxed font-sans flex flex-wrap items-center gap-x-1"
+                className="text-xs sm:text-sm md:text-base font-bold text-slate-700 leading-relaxed font-sans flex flex-wrap items-center gap-x-1.5 gap-y-1 pl-1"
               >
                 {paraSegments.map((seg) => {
                   const isActive = seg.id === activePhraseIndex;
@@ -318,13 +323,13 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
                     <motion.span
                       key={seg.id}
                       animate={{
-                        scale: isActive ? 1.04 : 1
+                        scale: isActive ? 1.02 : 1
                       }}
-                      className={`inline-block px-1.5 py-0.5 rounded-lg transition-all duration-200 ${
+                      className={`inline-block px-2.5 py-1 rounded-xl transition-all duration-200 ${
                         isActive
                           ? 'bg-amber-300 text-slate-950 font-black shadow-sm ring-2 ring-amber-400'
                           : isDone
-                          ? 'text-emerald-700 font-extrabold bg-emerald-50/60'
+                          ? 'text-emerald-700 font-extrabold bg-emerald-50/70'
                           : 'text-slate-600'
                       }`}
                     >
@@ -337,9 +342,9 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
           })}
         </div>
 
-        {/* Live Spoken Feedback Ribbon */}
+        {/* User Spoken Transcript Ribbon */}
         {userSpokenText && (
-          <div className="bg-purple-50 border border-purple-200 rounded-xl px-2.5 py-1 text-[11px] font-bold text-purple-900 flex items-center gap-1.5 shrink-0 my-1">
+          <div className="mx-2 bg-purple-50 border border-purple-200 rounded-xl px-2.5 py-1 text-[11px] font-bold text-purple-900 flex items-center gap-1.5 shrink-0 my-0.5">
             <span>You said:</span>
             <span className="italic text-purple-700">"{userSpokenText}"</span>
           </div>
@@ -373,15 +378,15 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
           )}
         </AnimatePresence>
 
-        {/* Interactive Action Controls */}
-        <div className="pt-2 border-t border-orange-100 flex items-center justify-between shrink-0">
+        {/* Control Action Bar */}
+        <div className="pt-2 border-t border-orange-100 flex items-center justify-between px-1 shrink-0">
           <div className="flex flex-col text-left max-w-[50%]">
             <span className="text-[9px] font-black uppercase text-orange-600 tracking-wider">Step</span>
             <span className="text-[11px] font-black text-slate-800 truncate">{statusMessage}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Replay Phrase Button */}
+            {/* Replay Phrase */}
             <button
               onClick={handleReplayCurrent}
               className="p-2 rounded-xl bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-200 shadow-sm active:scale-95 transition-all cursor-pointer"
@@ -390,7 +395,7 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
 
-            {/* Listen / Record Toggle Button */}
+            {/* Action State Button */}
             {mode === 'idle' ? (
               <motion.button
                 whileHover={{ scale: 1.04 }}
@@ -408,7 +413,7 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
               </div>
             ) : mode === 'recording_user' ? (
               <motion.button
-                animate={{ scale: [1, 1.05, 1] }}
+                animate={{ scale: [1, 1.04, 1] }}
                 transition={{ repeat: Infinity, duration: 1 }}
                 onClick={() => {
                   if (recognitionRef.current) {
@@ -438,7 +443,7 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
               </motion.button>
             )}
 
-            {/* Skip / Next Phrase Button */}
+            {/* Skip / Next */}
             <button
               onClick={() => {
                 sound.playPop();
@@ -453,9 +458,9 @@ export const SpeakRepeatScreen: React.FC<SpeakRepeatScreenProps> = ({
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Clean Footer */}
       <div className="flex items-center justify-between text-[9px] font-bold text-orange-900/70 px-2 shrink-0">
-        <span>Listen $ightarrow$ Tap Mic $ightarrow$ Speak to advance</span>
+        <span>Listen → Tap Mic → Speak to advance</span>
         <span>Phonics & Reading Practice ✨</span>
       </div>
     </div>
