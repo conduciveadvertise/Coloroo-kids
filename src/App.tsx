@@ -311,7 +311,18 @@ export default function App() {
             />
           )}
 
-          {currentScreen === 'parent' && (
+                {currentScreen === 'speak-repeat' && (
+        <SpeakRepeatScreen
+          onBack={() => setCurrentScreen('home')}
+          onAddStars={(amount) => {
+            setProfile(prev => ({
+              ...prev,
+              stars: prev.stars + amount
+            }));
+          }}
+        />
+      )}
+      {currentScreen === 'parent' && (
             <ParentDashboard
               profile={profile}
               settings={parentSettings}
