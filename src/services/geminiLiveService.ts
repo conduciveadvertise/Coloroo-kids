@@ -49,7 +49,7 @@ Always respond with real-time audio voice.
     this.isSetupComplete = false;
 
     try {
-      const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids-production.up.railway.app';
+      const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids.onrender.com';
       console.log(`[GeminiLive] Fetching token from: ${backendUrl}/api/ai-buddy/token`);
 
       const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
