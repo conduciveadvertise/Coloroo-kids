@@ -1,3 +1,4 @@
+export interface BuddyLiveSession { disconnect: () => void; sendAudioChunk?: (pcm: Float32Array) => void; }
 /**
  * Gemini Live Bidi WebSocket Client for Coloroo AI Buddy
  * Connects directly to Google GenerativeService.BidiGenerateContent.
@@ -136,7 +137,7 @@ Always respond with real-time audio voice.
   public async startTalking(): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.warn('[GeminiLive] Cannot talk: WebSocket is not open.');
-      this.setState('error', 'Reconnecting to Gemini... Tap again! 🔄');
+      this.setState('error', 'Reconnecting to Buddy... Tap again! 🔄');
       this.connect();
       return;
     }
@@ -411,3 +412,5 @@ Always respond with real-time audio voice.
     return bytes.buffer;
   }
 }
+
+export const BuddyLiveSession = {};

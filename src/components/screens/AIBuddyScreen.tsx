@@ -8,7 +8,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import {
-  Coloroo AILiveSession,
+  BuddyLiveSession,
   LiveConnectionState,
   LiveMessageTranscript
 } from '../../services/geminiLiveService';
@@ -25,10 +25,10 @@ export const AIBuddyScreen: React.FC<AIBuddyScreenProps> = ({ onBack }) => {
     { sender: 'buddy', text: 'Namaste! Main hoon aapka Coloroo AI Buddy! Kuch bhi poochhiye! 🌟' }
   ]);
   const [isRecording, setIsRecording] = useState(false);
-  const sessionRef = useRef<Coloroo AILiveSession | null>(null);
+  const sessionRef = useRef<BuddyLiveSession | null>(null);
 
   useEffect(() => {
-    const session = new Coloroo AILiveSession();
+    const session = new BuddyLiveSession();
     sessionRef.current = session;
 
     session.onStateChange = (st, msg) => {
