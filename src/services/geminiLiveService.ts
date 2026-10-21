@@ -45,7 +45,7 @@ Always respond with real-time audio voice.
 
   public async connect(): Promise<void> {
     console.log('[GeminiLive] Initiating connection...');
-    this.setState('connecting', 'Buddy is connecting to Gemini... ✨');
+    this.setState('connecting', 'Buddy is waking up... ✨ ✨');
     this.isSetupComplete = false;
 
     try {
