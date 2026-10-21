@@ -49,7 +49,7 @@ Always respond with real-time audio voice.
     this.isSetupComplete = false;
 
     try {
-      const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || 'https://coloroo-kids.onrender.com';
+      const backendUrl = (import.meta as any).env?.VITE_BACKEND_URL || "https://coloroo-kids.onrender.com";
       console.log(`[GeminiLive] Fetching token from: ${backendUrl}/api/ai-buddy/token`);
 
       const res = await fetch(`${backendUrl}/api/ai-buddy/token`, { method: 'POST' });
@@ -65,6 +65,7 @@ Always respond with real-time audio voice.
       if (model.startsWith('models/')) {
         model = model.replace('models/', '');
       }
+      console.log(`[GeminiLive] Using model: ${model}`);
 
       if (!ephemeralToken) {
         throw new Error('No ephemeral token received from Railway backend.');
@@ -100,7 +101,10 @@ Always respond with real-time audio voice.
       };
     } catch (err: any) {
       console.error('[GeminiLive ERROR] Connection failure:', err);
-      this.setState('error', 'Cannot connect to Gemini Live. Check internet.');
+      const errorDetails = err.name === 'TypeError' && err.message === 'Failed to fetch' 
+        ? 'Cannot connect to server. Check internet / server status.' 
+        : `Connection error: ${err.message || 'unknown'}`;
+      this.setState('error', errorDetails);
       if (this.onError) this.onError(err.message || 'Connection failed');
     }
   }
